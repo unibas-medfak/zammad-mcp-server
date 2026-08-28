@@ -1,5 +1,5 @@
 # Zammad MCP Server Dockerfile
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 LABEL maintainer="Open Ticket AI <tobias.bueck@openticketai.com>"
 LABEL description="MCP Server for Zammad Helpdesk System"
