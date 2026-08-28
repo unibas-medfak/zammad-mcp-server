@@ -99,10 +99,8 @@ class TestTicketTools:
             mock_get_controller.return_value = restricted_controller
 
             from zammad_mcp_server.server import get_ticket
-            result = get_ticket(1)
-
-            assert "error" in result
-            assert "Access denied" in result["error"]
+            with pytest.raises(PermissionError, match="Access denied"):
+                get_ticket(1)
 
     def test_search_tickets(self, unrestricted_controller: Any) -> None:
         """Test searching tickets."""

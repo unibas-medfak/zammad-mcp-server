@@ -117,8 +117,8 @@ class TestAccessController:
         assert controller.can_write("create_ticket") is True
         assert controller.can_write("update_ticket") is True
 
-    def test_can_admin_only_admin(self) -> None:
-        """Test admin permission checking."""
+    def test_can_admin_implies_lower_permissions(self) -> None:
+        """Test that ADMIN also grants write and read."""
         policy = AccessPolicy(
             category_permissions={
                 ToolCategory.TICKETS: Permission.ADMIN,
@@ -126,9 +126,10 @@ class TestAccessController:
         )
         controller = AccessController(policy)
 
+        # Permissions are hierarchical: ADMIN subsumes WRITE, which subsumes READ.
         assert controller.can_admin("delete_ticket") is True
-        assert controller.can_write("delete_ticket") is False
-        assert controller.can_read("delete_ticket") is False
+        assert controller.can_write("delete_ticket") is True
+        assert controller.can_read("delete_ticket") is True
 
     def test_tool_permission_overrides_category(self) -> None:
         """Test that specific tool permissions override category."""

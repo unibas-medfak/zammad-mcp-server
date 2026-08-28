@@ -1,5 +1,6 @@
 """Test fixtures and configuration for Zammad MCP Server tests."""
 
+import json
 import os
 from datetime import datetime
 from typing import Any
@@ -176,9 +177,9 @@ def sample_group() -> Group:
 def unrestricted_policy() -> AccessPolicy:
     """Create an unrestricted access policy."""
     return AccessPolicy(
-        default_permission=Permission.WRITE,
+        default_permission=Permission.ADMIN,
         category_permissions={
-            ToolCategory.ALL: Permission.WRITE,
+            ToolCategory.ALL: Permission.ADMIN,
         },
     )
 
@@ -246,6 +247,30 @@ def mock_httpx_client() -> MagicMock:
     return MagicMock(spec=httpx.Client)
 
 
+# ============== Mock Response Helpers ==============
+
+def echo_created(factory: Any, resource_id: int = 999) -> Any:
+    """Build a 201 response echoing the submitted fields back to the caller."""
+    def _respond(request: Any) -> Response:
+        payload = factory(resource_id)
+        payload.update(json.loads(request.content or b"{}"))
+        payload["id"] = resource_id
+        return Response(201, json=payload)
+
+    return _respond
+
+
+def echo_updated(factory: Any, resource_id: int = 1) -> Any:
+    """Build a 200 response echoing the submitted fields back to the caller."""
+    def _respond(request: Any) -> Response:
+        payload = factory(resource_id)
+        payload.update(json.loads(request.content or b"{}"))
+        payload["id"] = resource_id
+        return Response(200, json=payload)
+
+    return _respond
+
+
 # ============== Respx Routes Fixture ==============
 
 @pytest.fixture
@@ -267,60 +292,62 @@ def zammad_api_mock(respx_mock: respx.MockRouter) -> respx.MockRouter:
         })
     )
 
-    # Ticket routes
-    respx_mock.get(url__startswith=f"{base_url}/tickets/").mock(
-        return_value=Response(200, json=create_ticket_data(expand=True))
-    )
-
+    # Ticket routes. Search must be registered before the broader /tickets/
+    # prefix route, since respx matches patterns in registration order.
     respx_mock.get(url__startswith=f"{base_url}/tickets/search").mock(
         return_value=Response(200, json={
-            "tickets": [create_ticket_data(id=i, expand=True) for i in range(1, 4)],
+            "tickets": [create_ticket_data(ticket_id=i) for i in range(1, 4)],
             "tickets_count": 3,
         })
     )
 
-    respx_mock.post(f"{base_url}/tickets").mock(
-        return_value=Response(201, json=create_ticket_data(id=999, expand=True))
+    respx_mock.get(url__startswith=f"{base_url}/tickets/").mock(
+        return_value=Response(200, json=create_ticket_data(expand=True))
     )
 
+    respx_mock.post(f"{base_url}/tickets").mock(side_effect=echo_created(create_ticket_data))
+
     respx_mock.put(url__startswith=f"{base_url}/tickets/").mock(
-        return_value=Response(200, json=create_ticket_data(id=1, title="Updated", expand=True))
+        side_effect=echo_updated(create_ticket_data)
     )
 
     respx_mock.delete(url__startswith=f"{base_url}/tickets/").mock(
         return_value=Response(200, json={})
     )
 
-    # User routes
-    respx_mock.get(url__startswith=f"{base_url}/users/").mock(
-        return_value=Response(200, json=create_user_data(expand=True))
+    # Article routes
+    respx_mock.post(f"{base_url}/ticket_articles").mock(
+        side_effect=echo_created(create_article_data)
     )
 
+    # User routes
     respx_mock.get(url__startswith=f"{base_url}/users/search").mock(
         return_value=Response(200, json={
-            "users": [create_user_data(id=i) for i in range(1, 4)],
+            "users": [create_user_data(user_id=i) for i in range(1, 4)],
             "users_count": 3,
         })
     )
 
-    respx_mock.post(f"{base_url}/users").mock(
-        return_value=Response(201, json=create_user_data(id=999))
+    respx_mock.get(url__startswith=f"{base_url}/users/").mock(
+        return_value=Response(200, json=create_user_data(expand=True))
     )
+
+    respx_mock.post(f"{base_url}/users").mock(side_effect=echo_created(create_user_data))
 
     # Organization routes
-    respx_mock.get(url__startswith=f"{base_url}/organizations/").mock(
-        return_value=Response(200, json=create_organization_data())
-    )
-
     respx_mock.get(url__startswith=f"{base_url}/organizations/search").mock(
         return_value=Response(200, json={
-            "organizations": [create_organization_data(id=i) for i in range(1, 4)],
+            "organizations": [create_organization_data(org_id=i) for i in range(1, 4)],
             "organizations_count": 3,
         })
     )
 
+    respx_mock.get(url__startswith=f"{base_url}/organizations/").mock(
+        return_value=Response(200, json=create_organization_data())
+    )
+
     respx_mock.post(f"{base_url}/organizations").mock(
-        return_value=Response(201, json=create_organization_data(id=999))
+        side_effect=echo_created(create_organization_data)
     )
 
     # Group routes
@@ -358,12 +385,8 @@ def zammad_api_mock(respx_mock: respx.MockRouter) -> respx.MockRouter:
     # Article routes
     respx_mock.get(url__startswith=f"{base_url}/ticket_articles/by_ticket/").mock(
         return_value=Response(200, json={
-            "ticket_articles": [create_article_data(id=i) for i in range(1, 4)]
+            "ticket_articles": [create_article_data(article_id=i) for i in range(1, 4)]
         })
-    )
-
-    respx_mock.post(f"{base_url}/ticket_articles").mock(
-        return_value=Response(201, json=create_article_data(id=999))
     )
 
     return respx_mock

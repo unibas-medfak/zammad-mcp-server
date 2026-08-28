@@ -294,8 +294,12 @@ class TestZammadClientErrors:
         )
 
         client = ZammadClient()
+
+        # health_check() reports rather than raises, so the MCP tool can surface
+        # the failure; the underlying request still raises AuthenticationError.
+        assert client.health_check()["status"] == "unhealthy"
         with pytest.raises(AuthenticationError):
-            client.health_check()
+            client._request("GET", "/ping")
 
     def test_not_found_error(self, respx_mock: respx.MockRouter) -> None:
         """Test handling of 404 not found error."""
@@ -314,8 +318,10 @@ class TestZammadClientErrors:
         )
 
         client = ZammadClient()
+
+        assert client.health_check()["status"] == "unhealthy"
         with pytest.raises(ZammadClientError):
-            client.health_check()
+            client._request("GET", "/ping")
 
     def test_network_error(self, respx_mock: respx.MockRouter) -> None:
         """Test handling of network errors."""

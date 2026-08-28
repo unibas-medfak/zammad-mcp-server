@@ -75,10 +75,21 @@ class ZammadClient:
             max_cache_size: Maximum cache entries
         """
         self.url = (url or os.getenv("ZAMMAD_URL", "")).rstrip("/")
-        self.http_token = http_token or os.getenv("ZAMMAD_HTTP_TOKEN")
-        self.oauth2_token = oauth2_token or os.getenv("ZAMMAD_OAUTH2_TOKEN")
-        self.username = username or os.getenv("ZAMMAD_USERNAME")
-        self.password = password or os.getenv("ZAMMAD_PASSWORD")
+
+        # Explicit credentials win outright: falling back per-field would let an
+        # ambient ZAMMAD_HTTP_TOKEN outrank an explicitly requested oauth2/basic
+        # login, since http_token has the highest precedence in _setup_client().
+        if any((http_token, oauth2_token, username, password)):
+            self.http_token = http_token
+            self.oauth2_token = oauth2_token
+            self.username = username
+            self.password = password
+        else:
+            self.http_token = os.getenv("ZAMMAD_HTTP_TOKEN")
+            self.oauth2_token = os.getenv("ZAMMAD_OAUTH2_TOKEN")
+            self.username = os.getenv("ZAMMAD_USERNAME")
+            self.password = os.getenv("ZAMMAD_PASSWORD")
+
         self.timeout = timeout
 
         # Caches for static data
@@ -148,7 +159,9 @@ class ZammadClient:
             response = self._client.request(method, url, **kwargs)
             response.raise_for_status()
 
-            if response.status_code == 204:
+            # Zammad answers DELETE (and some PUTs) with 200 and an empty body,
+            # which json() would choke on.
+            if response.status_code == 204 or not response.content:
                 return {}
 
             return response.json()
