@@ -36,5 +36,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Default command (stdio for local, override for SSE)
-CMD ["zammad-mcp-server", "--transport", "sse", "--port", "8000"]
+# Default command (HTTP transport; override with --transport stdio for local MCP clients)
+CMD ["zammad-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]

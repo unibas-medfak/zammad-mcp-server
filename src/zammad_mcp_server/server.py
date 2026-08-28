@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
 import structlog
 from fastmcp import FastMCP, Context
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from zammad_mcp_server.access_control import AccessController, Permission
 from zammad_mcp_server.client import ZammadClient, ZammadClientError, NotFoundError
@@ -75,6 +78,12 @@ mcp = FastMCP(
     "Zammad MCP Server",
     lifespan=app_lifespan,
 )
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_endpoint(request: Request) -> JSONResponse:
+    """Liveness probe for network transports (used by the container HEALTHCHECK)."""
+    return JSONResponse({"status": "ok"})
 
 
 # Helper function to check access
@@ -1009,6 +1018,32 @@ Provide a recommendation on whether to escalate, to whom, and why."""
 
 # ==================== Main Entry Point ====================
 
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command line arguments for the server entrypoint."""
+    parser = argparse.ArgumentParser(
+        prog="zammad-mcp-server",
+        description="MCP server for the Zammad helpdesk system.",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "http", "streamable-http", "sse"],
+        default=os.getenv("ZAMMAD_MCP_TRANSPORT", "stdio"),
+        help="Transport to serve on (default: stdio).",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.getenv("ZAMMAD_MCP_HOST", "127.0.0.1"),
+        help="Host to bind for network transports (default: 127.0.0.1).",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("ZAMMAD_MCP_PORT", "8000")),
+        help="Port to bind for network transports (default: 8000).",
+    )
+    return parser.parse_args(argv)
+
+
 def main() -> None:
     """Run the MCP server."""
     import asyncio
@@ -1031,8 +1066,13 @@ def main() -> None:
         cache_logger_on_first_use=True,
     )
 
-    logger.info("starting_mcp_server")
-    mcp.run()
+    args = _parse_args()
+
+    logger.info("starting_mcp_server", transport=args.transport)
+    if args.transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        mcp.run(transport=args.transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
