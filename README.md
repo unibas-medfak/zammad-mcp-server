@@ -7,7 +7,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/zammad-mcp-server.svg "zammad-mcp-server on PyPI")](https://pypi.org/project/zammad-mcp-server/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg "Requires Python 3.11 or newer")](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg "MIT licensed open-source project")](https://opensource.org/licenses/MIT)
-[![Built with FastMCP](https://img.shields.io/badge/FastMCP-2.0+-green.svg "Built on the FastMCP framework")](https://github.com/jlowin/fastmcp)
+[![Built with FastMCP](https://img.shields.io/badge/FastMCP-4.0+-green.svg "Built on the FastMCP framework")](https://github.com/jlowin/fastmcp)
 [![Zammad 6.0+ and 7.x](https://img.shields.io/badge/Zammad-6.0%2B%20%7C%207.x-blue.svg "Compatible with Zammad 6.0+ and 7.x")](docs/COMPATIBILITY.md)
 
 > **In one line:** `uvx zammad-mcp-server` turns your Zammad helpdesk into a set of typed tools any AI agent can call — no Zammad plugin, no custom REST glue code.
@@ -398,7 +398,34 @@ docker build -t zammad-mcp-server .
 docker run -p 8000:8000 -e ZAMMAD_URL=$ZAMMAD_URL zammad-mcp-server
 ```
 
-### 3. Cloud Deployment
+### 3. Podman
+
+The image runs unchanged under Podman:
+
+```bash
+podman build -t zammad-mcp-server .
+podman run -d --name zammad-mcp -p 8000:8000 \
+  -e ZAMMAD_URL=https://your-zammad.com \
+  -e ZAMMAD_HTTP_TOKEN=your_token \
+  zammad-mcp-server
+```
+
+Follow the logs, then stop and remove the container:
+
+```bash
+podman logs -f zammad-mcp
+podman rm -f zammad-mcp
+```
+
+Two Podman-specific notes:
+
+- Podman builds in OCI format, which drops the Dockerfile's `HEALTHCHECK` (it warns
+  on every build). The `/health` endpoint still works — Podman just will not poll it
+  on its own. Use `podman build --format docker` to keep the directive.
+- On macOS, the Podman CLI may not be on your `PATH`; it installs to
+  `/opt/podman/bin/podman`.
+
+### 4. Cloud Deployment
 
 See the [Deployment guide](https://openticketai.com/en/docs/zammad-mcp-server/deployment/) for Docker, SSE, and production hosting (Google Cloud Run, Railway, Fly.io, and more).
 
