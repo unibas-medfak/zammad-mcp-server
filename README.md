@@ -435,22 +435,33 @@ zammad-mcp-server
 
 ### 2. Docker Container
 
-Published images are on **GitHub Container Registry** (`ghcr.io`):
+Published images are on **GitHub Container Registry** (`ghcr.io`), built from `main`
+and from every `v*` tag by [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml):
 
 ```bash
-docker pull ghcr.io/softoft-orga/zammad-mcp-server:latest
+docker pull ghcr.io/unibas-medfak/zammad-mcp-server:latest
 
 docker run -p 8000:8000 \
   -e ZAMMAD_URL=https://your-zammad.com \
   -e ZAMMAD_HTTP_TOKEN=your_token \
-  ghcr.io/softoft-orga/zammad-mcp-server:latest
+  -e ZAMMAD_MCP_AUTH=static \
+  -e ZAMMAD_MCP_AUTH_TOKENS=claude:your_client_token \
+  ghcr.io/unibas-medfak/zammad-mcp-server:latest
 ```
+
+The auth variables are required: over HTTP the server refuses to start without them.
+See [Client authentication](#client-authentication-http-transport).
 
 Build locally:
 
 ```bash
 docker build -t zammad-mcp-server .
-docker run -p 8000:8000 -e ZAMMAD_URL=$ZAMMAD_URL zammad-mcp-server
+docker run -p 8000:8000 \
+  -e ZAMMAD_URL=$ZAMMAD_URL \
+  -e ZAMMAD_HTTP_TOKEN=$ZAMMAD_HTTP_TOKEN \
+  -e ZAMMAD_MCP_AUTH=static \
+  -e ZAMMAD_MCP_AUTH_TOKENS=claude:your_client_token \
+  zammad-mcp-server
 ```
 
 ### 3. Podman
@@ -462,6 +473,8 @@ podman build -t zammad-mcp-server .
 podman run -d --name zammad-mcp -p 8000:8000 \
   -e ZAMMAD_URL=https://your-zammad.com \
   -e ZAMMAD_HTTP_TOKEN=your_token \
+  -e ZAMMAD_MCP_AUTH=static \
+  -e ZAMMAD_MCP_AUTH_TOKENS=claude:your_client_token \
   zammad-mcp-server
 ```
 
