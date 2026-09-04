@@ -279,6 +279,61 @@ MCP_DENIED_TOOLS=delete_ticket,delete_user,delete_organization
 MCP_ALLOWED_GROUPS=Support,Sales
 ```
 
+### Client authentication (HTTP transport)
+
+Access control decides *which tools* a caller may use. Client authentication decides
+*whether the caller gets in at all* — distinct from the [Authentication
+Methods](#authentication-methods) below, which cover how this server logs in to Zammad.
+
+Callers present a bearer token, as the MCP specification expects:
+
+```env
+# Require a bearer token; entries are client_id:token pairs
+ZAMMAD_MCP_AUTH=static
+ZAMMAD_MCP_AUTH_TOKENS=claude:s3cr3t-a,cursor:s3cr3t-b
+
+# Optional: scopes every token must carry
+ZAMMAD_MCP_AUTH_REQUIRED_SCOPES=zammad:read,zammad:write
+```
+
+Generate tokens with something like `openssl rand -hex 32` and keep them in your
+secret manager, not in the repo. For per-token scopes, `ZAMMAD_MCP_AUTH_TOKENS`
+also accepts a JSON object mapping token to claims:
+
+```env
+ZAMMAD_MCP_AUTH_TOKENS={"s3cr3t-a": {"client_id": "claude", "scopes": ["zammad:read"]}}
+```
+
+Clients send the token in the `Authorization` header:
+
+```json
+{
+  "mcpServers": {
+    "zammad": {
+      "url": "https://your-server.example.com/mcp",
+      "headers": { "Authorization": "Bearer s3cr3t-a" }
+    }
+  }
+}
+```
+
+**The server fails closed.** `http`, `streamable-http`, and `sse` refuse to start
+without `ZAMMAD_MCP_AUTH`, because an open port hands every caller the server's
+Zammad credentials. If the port is already protected some other way (a reverse
+proxy doing Basic auth, a private network), opt out explicitly:
+
+```env
+ZAMMAD_MCP_ALLOW_UNAUTHENTICATED=true
+```
+
+Two things are deliberately left unauthenticated: `stdio` transport, which is a
+local subprocess owned by the client, and `GET /health`, so container health
+checks work without a credential.
+
+Static tokens are simple but blunt — they live in the environment in plain text,
+never expire, and are revoked only by restarting the server. Rotate them
+periodically and give each client its own.
+
 ### Programmatic Access Control
 
 ```python

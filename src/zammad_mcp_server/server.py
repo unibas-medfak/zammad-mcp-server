@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
@@ -13,6 +15,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from zammad_mcp_server.access_control import AccessController, Permission
+from zammad_mcp_server.auth import build_auth_provider, require_auth_for_transport
 from zammad_mcp_server.client import ZammadClient, ZammadClientError, NotFoundError
 from zammad_mcp_server.models import (
     ArticleCreateRequest,
@@ -22,6 +25,37 @@ from zammad_mcp_server.models import (
     TicketUpdateRequest,
     UserCreateRequest,
 )
+
+def configure_logging() -> None:
+    """Send structured logs to stderr.
+
+    stdout carries the JSON-RPC stream under stdio transport, so a log line
+    written there corrupts the protocol. Routing every record to stderr keeps
+    both transports readable. Level comes from LOG_LEVEL (default INFO).
+    """
+    level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").strip().upper(), logging.INFO)
+
+    logging.basicConfig(format="%(message)s", stream=sys.stderr, level=level, force=True)
+
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.JSONRenderer(),
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+
+configure_logging()
 
 logger = structlog.get_logger()
 
@@ -77,6 +111,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
 mcp = FastMCP(
     "Zammad MCP Server",
     lifespan=app_lifespan,
+    auth=build_auth_provider(),
 )
 
 
@@ -1046,27 +1081,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main() -> None:
     """Run the MCP server."""
-    import asyncio
-
-    # Configure logging
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
-
     args = _parse_args()
+
+    require_auth_for_transport(args.transport, mcp.auth)
 
     logger.info("starting_mcp_server", transport=args.transport)
     if args.transport == "stdio":

@@ -486,6 +486,16 @@ fly open
 | `ZAMMAD_URL` | Zammad instance URL | `https://helpdesk.company.com` |
 | `ZAMMAD_HTTP_TOKEN` | API token for authentication | `abc123...` |
 
+### Transport Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ZAMMAD_MCP_TRANSPORT` | `stdio`, `http`, `streamable-http`, or `sse` | `stdio` |
+| `ZAMMAD_MCP_HOST` | Bind address for network transports | `127.0.0.1` |
+| `ZAMMAD_MCP_PORT` | Bind port for network transports | `8000` |
+
+Each has a matching flag: `--transport`, `--host`, `--port`.
+
 ### Authentication Alternatives
 
 Instead of `ZAMMAD_HTTP_TOKEN`, you can use:
@@ -518,6 +528,30 @@ MCP_ALLOWED_GROUPS=Support,Sales
 MCP_ALLOWED_CATEGORIES=tickets,users,organizations,groups,system
 # (Without admin category)
 ```
+
+### Client Authentication Variables
+
+These control who may call the server over HTTP. Without them, network transports
+refuse to start.
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `ZAMMAD_MCP_AUTH` | Auth mode: `none` (default) or `static` | `static` |
+| `ZAMMAD_MCP_AUTH_TOKENS` | `client_id:token` pairs, or a JSON object mapping token to claims | `claude:s3cr3t-a,cursor:s3cr3t-b` |
+| `ZAMMAD_MCP_AUTH_REQUIRED_SCOPES` | Scopes every token must carry | `zammad:read,zammad:write` |
+| `ZAMMAD_MCP_ALLOW_UNAUTHENTICATED` | Set to `true` to serve HTTP with no auth (only when the port is protected another way) | `false` |
+
+```bash
+docker run -p 8000:8000 \
+  -e ZAMMAD_URL=https://your-zammad.com \
+  -e ZAMMAD_HTTP_TOKEN=your_token \
+  -e ZAMMAD_MCP_AUTH=static \
+  -e ZAMMAD_MCP_AUTH_TOKENS="claude:$(openssl rand -hex 32)" \
+  zammad-mcp-server
+```
+
+`stdio` transport needs no token, and `GET /health` stays open so container health
+checks keep working.
 
 ### Logging Variables
 
