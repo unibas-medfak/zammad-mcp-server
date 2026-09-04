@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import fnmatch
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from itertools import islice
 from typing import Any
 
 import structlog
 
 logger = structlog.get_logger()
+
+# The access log is a rolling in-memory buffer for recent activity, not an audit
+# trail. It is capped so a long-running server cannot grow it without bound;
+# durable auditing belongs in the structured logs.
+DEFAULT_ACCESS_LOG_MAX_ENTRIES = 1000
 
 
 class Permission(Enum):
@@ -100,8 +108,14 @@ class AccessPolicy:
     # Rate limiting
     rate_limit_per_minute: int = 60
 
+    # Maximum entries retained in the in-memory access log; 0 disables it
+    access_log_max_entries: int = DEFAULT_ACCESS_LOG_MAX_ENTRIES
+
     def __post_init__(self) -> None:
         """Validate and normalize the policy."""
+        if self.access_log_max_entries < 0:
+            raise ValueError("access_log_max_entries must be >= 0")
+
         # Ensure ALL category covers everything if set
         if ToolCategory.ALL in self.category_permissions:
             all_perm = self.category_permissions[ToolCategory.ALL]
@@ -116,7 +130,9 @@ class AccessController:
     def __init__(self, policy: AccessPolicy | None = None) -> None:
         """Initialize with an access policy."""
         self.policy = policy or AccessPolicy()
-        self._access_log: list[dict[str, Any]] = []
+        self._access_log: deque[dict[str, Any]] = deque(
+            maxlen=self.policy.access_log_max_entries
+        )
 
     def can_execute(self, tool_name: str) -> bool:
         """Check if a tool can be executed."""
@@ -194,9 +210,11 @@ class AccessController:
         allowed: bool,
         client_info: dict[str, Any] | None = None,
     ) -> None:
-        """Log an access attempt."""
-        import time
+        """Log an access attempt.
 
+        The buffer keeps only the most recent policy.access_log_max_entries
+        entries; older ones are discarded as new ones arrive.
+        """
         entry = {
             "timestamp": time.time(),
             "tool": tool_name,
@@ -214,8 +232,11 @@ class AccessController:
             )
 
     def get_access_log(self, limit: int = 100) -> list[dict[str, Any]]:
-        """Get recent access log entries."""
-        return self._access_log[-limit:]
+        """Get the most recent access log entries, oldest first."""
+        if limit <= 0:
+            return []
+        start = max(0, len(self._access_log) - limit)
+        return list(islice(self._access_log, start, None))
 
     @classmethod
     def from_env(cls) -> AccessController:
@@ -248,11 +269,26 @@ class AccessController:
         if allowed_groups_str:
             allowed_groups = {g.strip() for g in allowed_groups_str.split(",")}
 
+        # Parse the access log bound
+        max_entries_str = os.getenv("MCP_ACCESS_LOG_MAX_ENTRIES", "").strip()
+        try:
+            max_entries = (
+                int(max_entries_str) if max_entries_str else DEFAULT_ACCESS_LOG_MAX_ENTRIES
+            )
+        except ValueError:
+            logger.warning(
+                "invalid_access_log_max_entries",
+                value=max_entries_str,
+                fallback=DEFAULT_ACCESS_LOG_MAX_ENTRIES,
+            )
+            max_entries = DEFAULT_ACCESS_LOG_MAX_ENTRIES
+
         policy = AccessPolicy(
             default_permission=Permission.READ_ONLY,
             category_permissions=category_permissions,
             denied_tools=denied_tools,
             allowed_groups=allowed_groups,
+            access_log_max_entries=max(0, max_entries),
         )
 
         return cls(policy)

@@ -277,6 +277,9 @@ MCP_DENIED_TOOLS=delete_ticket,delete_user,delete_organization
 
 # Restrict to specific groups
 MCP_ALLOWED_GROUPS=Support,Sales
+
+# Entries kept in the in-memory access log (default 1000, 0 disables it)
+MCP_ACCESS_LOG_MAX_ENTRIES=1000
 ```
 
 ### Client authentication (HTTP transport)

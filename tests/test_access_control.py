@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from zammad_mcp_server.access_control import (
+    DEFAULT_ACCESS_LOG_MAX_ENTRIES,
     AccessController,
     AccessPolicy,
     Permission,
@@ -214,6 +215,56 @@ class TestAccessController:
         assert log[0]["allowed"] is True
         assert log[1]["tool"] == "delete_ticket"
         assert log[1]["allowed"] is False
+
+    def test_access_log_is_bounded(self) -> None:
+        """The log discards the oldest entries instead of growing without bound."""
+        controller = AccessController(AccessPolicy(access_log_max_entries=10))
+
+        for i in range(100):
+            controller.log_access(f"tool_{i}", True)
+
+        assert len(controller._access_log) == 10
+
+        log = controller.get_access_log(limit=100)
+        assert len(log) == 10
+        assert log[0]["tool"] == "tool_90"
+        assert log[-1]["tool"] == "tool_99"
+
+    def test_access_log_can_be_disabled(self) -> None:
+        """A bound of zero retains nothing."""
+        controller = AccessController(AccessPolicy(access_log_max_entries=0))
+
+        controller.log_access("get_ticket", True)
+
+        assert controller.get_access_log() == []
+
+    def test_negative_access_log_bound_is_rejected(self) -> None:
+        """A negative bound is a configuration error, not a silent default."""
+        with pytest.raises(ValueError, match="access_log_max_entries must be >= 0"):
+            AccessPolicy(access_log_max_entries=-1)
+
+    def test_get_access_log_returns_most_recent(self) -> None:
+        """The limit takes the newest entries, oldest first."""
+        controller = AccessController(AccessPolicy())
+
+        for i in range(5):
+            controller.log_access(f"tool_{i}", True)
+
+        log = controller.get_access_log(limit=2)
+        assert [entry["tool"] for entry in log] == ["tool_3", "tool_4"]
+
+    def test_get_access_log_with_zero_limit_returns_nothing(self) -> None:
+        """limit=0 means no entries (a plain slice would return all of them)."""
+        controller = AccessController(AccessPolicy())
+        controller.log_access("get_ticket", True)
+
+        assert controller.get_access_log(limit=0) == []
+
+    def test_default_bound_is_applied(self) -> None:
+        """Controllers built without an explicit policy are still bounded."""
+        controller = AccessController()
+
+        assert controller._access_log.maxlen == DEFAULT_ACCESS_LOG_MAX_ENTRIES
 
     def test_get_allowed_tools(self) -> None:
         """Test getting list of allowed tools."""
