@@ -19,13 +19,14 @@ access — the MCP server only needs `ZAMMAD_URL` and a token.
 
 ## MCP server vs Zammad version
 
-The **PyPI package** (`zammad-mcp-server`) is versioned independently (currently
-`0.1.x`). One MCP server release works across all supported Zammad versions above;
-you do not need a different MCP build per Zammad minor release.
+The **MCP server** is versioned independently (currently `0.0.x`) and distributed
+as a container image on GHCR. One MCP server release works across all supported
+Zammad versions above; you do not need a different MCP build per Zammad minor
+release.
 
 | Artifact | Versioning |
 | --- | --- |
-| `zammad-mcp-server` on PyPI | Semver (`0.1.1`, …) — MCP tools and client behaviour |
+| `ghcr.io/unibas-medfak/zammad-mcp-server` | Semver (`0.0.1`, …) — MCP tools and client behaviour |
 | Bundled dev stack (`docker/`) | `ZAMMAD_VERSION` env var — which Zammad image to run locally |
 | Your production Zammad | Whatever you already run — point `ZAMMAD_URL` at it |
 

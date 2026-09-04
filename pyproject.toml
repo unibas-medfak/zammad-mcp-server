@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zammad-mcp-server"
-version = "0.1.1"
+dynamic = ["version"]
 description = "Production-ready Zammad MCP Server for Zammad 6.0+ and 7.x (tested on 7.1). Connect Claude, Cursor, and LLMs to your helpdesk via MCP."
 readme = "README.md"
 license = "MIT"
@@ -37,6 +37,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Communications",
 ]
@@ -66,10 +67,14 @@ dev = [
 zammad-mcp-server = "zammad_mcp_server.server:main"
 
 [project.urls]
-Homepage = "https://github.com/Softoft-Orga/zammad-mcp-server"
-Repository = "https://github.com/Softoft-Orga/zammad-mcp-server"
-Documentation = "https://github.com/Softoft-Orga/zammad-mcp-server#readme"
-Issues = "https://github.com/Softoft-Orga/zammad-mcp-server/issues"
+Homepage = "https://github.com/unibas-medfak/zammad-mcp-server"
+Repository = "https://github.com/unibas-medfak/zammad-mcp-server"
+Documentation = "https://github.com/unibas-medfak/zammad-mcp-server#readme"
+Issues = "https://github.com/unibas-medfak/zammad-mcp-server/issues"
+
+# Single source of truth for the version: src/zammad_mcp_server/__init__.py
+[tool.hatch.version]
+path = "src/zammad_mcp_server/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zammad_mcp_server"]

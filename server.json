@@ -1,21 +1,29 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.softoft-orga/zammad-mcp-server",
+  "name": "io.github.unibas-medfak/zammad-mcp-server",
   "title": "Zammad MCP Server",
   "description": "Production-ready Zammad MCP Server for Zammad 6.0+ and 7.x (tested on 7.1). Connect Claude, Cursor, and LLMs to your helpdesk via MCP.",
   "repository": {
-    "url": "https://github.com/Softoft-Orga/zammad-mcp-server",
+    "url": "https://github.com/unibas-medfak/zammad-mcp-server",
     "source": "github"
   },
-  "version": "0.1.1",
+  "version": "0.0.1",
   "packages": [
     {
-      "registryType": "pypi",
-      "identifier": "zammad-mcp-server",
-      "version": "0.1.1",
+      "registryType": "oci",
+      "registryBaseUrl": "https://ghcr.io",
+      "identifier": "unibas-medfak/zammad-mcp-server",
+      "version": "0.0.1",
       "transport": {
         "type": "stdio"
       },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--transport",
+          "value": "stdio"
+        }
+      ],
       "environmentVariables": [
         {
           "name": "ZAMMAD_URL",
@@ -35,6 +43,19 @@
           "description": "Comma-separated list of disabled MCP tools, for example delete_ticket,delete_user,delete_organization.",
           "isRequired": false,
           "format": "string"
+        },
+        {
+          "name": "ZAMMAD_MCP_AUTH",
+          "description": "Client authentication mode for network transports: none (default) or static.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "ZAMMAD_MCP_AUTH_TOKENS",
+          "description": "Bearer tokens accepted over HTTP, as client_id:token pairs. Required when ZAMMAD_MCP_AUTH=static.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
         }
       ]
     }

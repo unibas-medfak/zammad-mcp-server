@@ -76,3 +76,33 @@ jobs:
       # from pyproject.toml would ship dependencies nobody resolved on purpose.
       - name: uv.lock is up to date with pyproject.toml
         run: uv lock --check
+
+      # pyproject.toml takes its version from __init__.py, but server.json is a
+      # registry manifest the build system never sees. Keep the two in step.
+      - name: server.json version matches the package
+        run: |
+          uv run python - <<'EOF'
+          import json
+          import pathlib
+          import re
+          import sys
+
+          init = pathlib.Path("src/zammad_mcp_server/__init__.py").read_text()
+          match = re.search(r'^__version__ = "([^"]+)"', init, re.MULTILINE)
+          if not match:
+              sys.exit("could not find __version__ in src/zammad_mcp_server/__init__.py")
+          expected = match.group(1)
+
+          manifest = json.loads(pathlib.Path("server.json").read_text())
+          found = {"version": manifest["version"]}
+          for i, package in enumerate(manifest.get("packages", [])):
+              found[f"packages[{i}].version"] = package["version"]
+
+          mismatched = {k: v for k, v in found.items() if v != expected}
+          if mismatched:
+              for key, value in mismatched.items():
+                  print(f"::error file=server.json::{key} is {value}, expected {expected}")
+              sys.exit(1)
+
+          print(f"server.json matches __version__ ({expected})")
+          EOF

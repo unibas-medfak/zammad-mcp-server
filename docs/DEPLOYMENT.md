@@ -25,15 +25,23 @@ This guide covers various deployment options for the Zammad MCP Server, from loc
 ### Minimal Setup
 
 ```bash
-# Install the server
-pip install zammad-mcp-server
+# Pull the image
+docker pull ghcr.io/unibas-medfak/zammad-mcp-server:latest
 
-# Set environment variables
+# Run it (stdio for a local MCP client)
+docker run -i --rm \
+  -e ZAMMAD_URL=https://your-zammad.com \
+  -e ZAMMAD_HTTP_TOKEN=your_token \
+  ghcr.io/unibas-medfak/zammad-mcp-server:latest --transport stdio
+```
+
+Or from a source checkout:
+
+```bash
+uv sync
 export ZAMMAD_URL=https://your-zammad.com
 export ZAMMAD_HTTP_TOKEN=your_token
-
-# Run the server
-zammad-mcp-server
+uv run zammad-mcp-server
 ```
 
 ## Local Development
@@ -63,7 +71,7 @@ the REST API. The dev stack simply tracks the current Zammad release we test aga
 
 ```bash
 # Clone the repository
-git clone https://github.com/Softoft-Orga/zammad-mcp-server.git
+git clone https://github.com/unibas-medfak/zammad-mcp-server.git
 cd zammad-mcp-server
 
 # Install dependencies
@@ -297,7 +305,7 @@ def lambda_handler(event, context):
 
 ```bash
 # Create deployment package
-pip install zammad-mcp-server mangum -t package/
+pip install . mangum -t package/
 cp lambda_handler.py package/
 cd package && zip -r ../deployment.zip .
 
@@ -719,4 +727,4 @@ docker run -e CACHE_TTL_SECONDS=600 ...
 
 ---
 
-For more help, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) or open an [issue](https://github.com/Softoft-Orga/zammad-mcp-server/issues).
+For more help, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) or open an [issue](https://github.com/unibas-medfak/zammad-mcp-server/issues).

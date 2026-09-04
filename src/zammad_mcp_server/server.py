@@ -14,6 +14,7 @@ from fastmcp import FastMCP, Context
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from zammad_mcp_server import __version__
 from zammad_mcp_server.access_control import AccessController, Permission
 from zammad_mcp_server.auth import build_auth_provider, require_auth_for_transport
 from zammad_mcp_server.client import ZammadClient, ZammadClientError, NotFoundError
@@ -110,6 +111,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
 # Create FastMCP instance
 mcp = FastMCP(
     "Zammad MCP Server",
+    version=__version__,
     lifespan=app_lifespan,
     auth=build_auth_provider(),
 )

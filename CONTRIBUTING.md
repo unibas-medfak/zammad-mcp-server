@@ -317,8 +317,8 @@ Include:
 
 ## Questions?
 
-- 📖 [Documentation](https://github.com/Softoft-Orga/zammad-mcp-server/tree/main/docs)
-- 💬 [Discussions](https://github.com/Softoft-Orga/zammad-mcp-server/discussions)
-- 🐛 [Issue Tracker](https://github.com/Softoft-Orga/zammad-mcp-server/issues)
+- 📖 [Documentation](https://github.com/unibas-medfak/zammad-mcp-server/tree/main/docs)
+- 💬 [Discussions](https://github.com/unibas-medfak/zammad-mcp-server/discussions)
+- 🐛 [Issue Tracker](https://github.com/unibas-medfak/zammad-mcp-server/issues)
 
 Thank you for contributing!

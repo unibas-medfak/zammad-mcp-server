@@ -1,18 +1,17 @@
 # Zammad MCP Server — Connect Claude, Cursor & LLMs to Your Zammad Helpdesk
 
-<!-- mcp-name: io.github.softoft-orga/zammad-mcp-server -->
+<!-- mcp-name: io.github.unibas-medfak/zammad-mcp-server -->
 
 **Zammad MCP Server** is a free, open-source, production-ready [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for [Zammad](https://zammad.com), the open-source helpdesk and ticket system. It connects AI assistants — **Claude Desktop**, **Cursor**, and any MCP-compatible LLM agent — directly to your Zammad instance, so you can search tickets, summarize threads, draft replies, and manage users and organizations in natural language.
 
-[![PyPI version](https://img.shields.io/pypi/v/zammad-mcp-server.svg "zammad-mcp-server on PyPI")](https://pypi.org/project/zammad-mcp-server/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg "Requires Python 3.11 or newer")](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg "MIT licensed open-source project")](https://opensource.org/licenses/MIT)
 [![Built with FastMCP](https://img.shields.io/badge/FastMCP-4.0+-green.svg "Built on the FastMCP framework")](https://github.com/jlowin/fastmcp)
 [![Zammad 6.0+ and 7.x](https://img.shields.io/badge/Zammad-6.0%2B%20%7C%207.x-blue.svg "Compatible with Zammad 6.0+ and 7.x")](docs/COMPATIBILITY.md)
 
-> **In one line:** `uvx zammad-mcp-server` turns your Zammad helpdesk into a set of typed tools any AI agent can call — no Zammad plugin, no custom REST glue code.
+> **In one line:** `docker run ghcr.io/unibas-medfak/zammad-mcp-server` turns your Zammad helpdesk into a set of typed tools any AI agent can call — no Zammad plugin, no custom REST glue code.
 
-> ⭐ **Find this useful?** [Star the repo](https://github.com/Softoft-Orga/zammad-mcp-server) — it helps other Zammad teams discover the project and shapes the [roadmap](#roadmap).
+> ⭐ **Find this useful?** [Star the repo](https://github.com/unibas-medfak/zammad-mcp-server) — it helps other Zammad teams discover the project and shapes the [roadmap](#roadmap).
 
 ## Table of Contents
 
@@ -71,9 +70,9 @@ required. Full matrix: **[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)**.
 | **6.0 – 6.4.x** | **Compatible** (minimum supported line) |
 | **&lt; 6.0** | Not supported |
 
-**MCP package vs Zammad:** `zammad-mcp-server` on PyPI is versioned independently
-(`0.1.x`). One MCP release works with every supported Zammad version — set
-`ZAMMAD_URL` to your instance; no per-Zammad MCP build.
+**MCP server vs Zammad:** this server is versioned independently (`0.0.x`). One
+release works with every supported Zammad version — set `ZAMMAD_URL` to your
+instance; no per-Zammad MCP build.
 
 **Local dev stack:** `docker/` ships Zammad **7.1** by default. Override with
 `ZAMMAD_VERSION` in `docker/.env` (`7.0`, `6.5`, `6.3` also supported). See
@@ -115,20 +114,18 @@ All three can coexist. MCP is the fastest path to “talk to my helpdesk from Cl
 
 ### Installation
 
-**From PyPI (recommended for MCP clients):**
+**From the container image (recommended):**
 
 ```bash
-pip install zammad-mcp-server
-# or
-uv tool install zammad-mcp-server
-# or run once without installing
-uvx zammad-mcp-server
+docker pull ghcr.io/unibas-medfak/zammad-mcp-server:latest
 ```
+
+See [Hosting options](#hosting-options) for the full `docker run` invocation.
 
 **From source (development):**
 
 ```bash
-git clone https://github.com/Softoft-Orga/zammad-mcp-server.git
+git clone https://github.com/unibas-medfak/zammad-mcp-server.git
 cd zammad-mcp-server
 uv sync --extra dev
 ```
@@ -563,8 +560,8 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 
 - 📖 [Documentation (EN)](https://openticketai.com/en/docs/zammad-mcp-server/) · [Dokumentation (DE)](https://openticketai.com/de/docs/zammad-mcp-server/)
 - 📘 [Setup tutorial (blog)](https://openticketai.com/en/docs/blog/zammad-mcp-server-setup-and-usage/)
-- 🐛 [Issue Tracker](https://github.com/Softoft-Orga/zammad-mcp-server/issues)
-- 💬 [Discussions](https://github.com/Softoft-Orga/zammad-mcp-server/discussions)
+- 🐛 [Issue Tracker](https://github.com/unibas-medfak/zammad-mcp-server/issues)
+- 💬 [Discussions](https://github.com/unibas-medfak/zammad-mcp-server/discussions)
 
 ## Acknowledgments
 
