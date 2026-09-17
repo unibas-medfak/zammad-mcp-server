@@ -324,6 +324,16 @@ class TestAccessControllerFromEnv:
         assert controller.can_execute("get_user") is False
         assert controller.can_execute("create_user") is False
 
+    def test_from_env_denies_everything_when_unconfigured(self, monkeypatch: Any) -> None:
+        """Test that a fresh install with no MCP_ALLOWED_CATEGORIES denies all tools."""
+        monkeypatch.delenv("MCP_ALLOWED_CATEGORIES", raising=False)
+
+        controller = AccessController.from_env()
+
+        assert controller.can_read("get_ticket") is False
+        assert controller.can_execute("get_ticket") is False
+        assert controller.can_write("create_ticket") is False
+
     def test_from_env_with_groups(self, monkeypatch: Any) -> None:
         """Test creating controller with group restrictions."""
         monkeypatch.setenv("MCP_ALLOWED_CATEGORIES", "all")

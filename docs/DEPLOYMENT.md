@@ -520,7 +520,7 @@ ZAMMAD_PASSWORD=securepassword
 ### Access Control Variables
 
 ```env
-# Allow all categories (default)
+# Nothing is allowed until you set this (fails closed by default)
 MCP_ALLOWED_CATEGORIES=all
 
 # Allow specific categories only
@@ -534,10 +534,6 @@ MCP_ALLOWED_GROUPS=Support,Sales
 
 # Entries kept in the rolling in-memory access log (default 1000, 0 disables it)
 MCP_ACCESS_LOG_MAX_ENTRIES=1000
-
-# Set read-only mode
-MCP_ALLOWED_CATEGORIES=tickets,users,organizations,groups,system
-# (Without admin category)
 ```
 
 ### Client Authentication Variables
@@ -636,6 +632,9 @@ MCP_DENIED_TOOLS=delete_ticket,delete_user,delete_organization
 MCP_ALLOWED_CATEGORIES=all
 # (No MCP_DENIED_TOOLS)
 ```
+
+Leaving `MCP_ALLOWED_CATEGORIES` unset denies every tool -- there is no
+"unconfigured" state that accidentally grants access.
 
 ### Audit Logging
 

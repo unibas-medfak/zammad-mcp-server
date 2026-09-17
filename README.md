@@ -140,7 +140,7 @@ Create a `.env` file:
 ZAMMAD_URL=https://your-zammad-instance.com
 ZAMMAD_HTTP_TOKEN=your_api_token_here
 
-# Optional: Access control
+# Required: nothing is allowed until you set this (fails closed by default)
 MCP_ALLOWED_CATEGORIES=all
 MCP_DENIED_TOOLS=delete_ticket,delete_user
 ```
@@ -170,6 +170,7 @@ Add to `claude_desktop_config.json` or Cursor **Settings → MCP**:
       "env": {
         "ZAMMAD_URL": "https://your-zammad-instance.com",
         "ZAMMAD_HTTP_TOKEN": "your_token",
+        "MCP_ALLOWED_CATEGORIES": "all",
         "MCP_DENIED_TOOLS": "delete_ticket,delete_user,delete_organization"
       }
     }
@@ -262,7 +263,7 @@ The server includes a sophisticated access control system so you can safely conn
 ### Configuration via Environment Variables
 
 ```env
-# Allow all categories (default)
+# Nothing is allowed until you set this (fail closed by default)
 MCP_ALLOWED_CATEGORIES=all
 
 # Allow specific categories only
@@ -277,6 +278,11 @@ MCP_ALLOWED_GROUPS=Support,Sales
 # Entries kept in the in-memory access log (default 1000, 0 disables it)
 MCP_ACCESS_LOG_MAX_ENTRIES=1000
 ```
+
+Without `MCP_ALLOWED_CATEGORIES` set, every tool is denied — a fresh install with
+no access-control configuration does nothing until you explicitly opt in. Setting
+it (even to `all`) grants `WRITE`-level access to the categories you list;
+combine with `MCP_DENIED_TOOLS` to carve out destructive tools like deletes.
 
 ### Client authentication (HTTP transport)
 
@@ -512,7 +518,7 @@ Zammad **7.1** (primary, tested), **7.0** (tested), and **6.0–6.5.x** (compati
 
 ### Is it safe to use on a production Zammad instance?
 
-Yes. Access is controlled by environment variables — restrict categories (`MCP_ALLOWED_CATEGORIES`), deny destructive tools (`MCP_DENIED_TOOLS=delete_ticket,delete_user`), or run fully read-only. Follow the [Security guide](https://openticketai.com/en/docs/zammad-mcp-server/security/) before going live.
+Yes. Nothing is allowed until you set `MCP_ALLOWED_CATEGORIES` — it fails closed by default. From there, access is controlled by environment variables — restrict categories (`MCP_ALLOWED_CATEGORIES`) and deny destructive tools (`MCP_DENIED_TOOLS=delete_ticket,delete_user`). Follow the [Security guide](https://openticketai.com/en/docs/zammad-mcp-server/security/) before going live.
 
 ### Is the Zammad MCP Server free and open source?
 

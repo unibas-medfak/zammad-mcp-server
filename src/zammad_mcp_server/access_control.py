@@ -242,14 +242,21 @@ class AccessController:
         """Create an access controller from environment variables."""
         import os
 
-        # Parse allowed categories
-        allowed_categories_str = os.getenv("MCP_ALLOWED_CATEGORIES", "all")
-        allowed_categories = {cat.strip().lower() for cat in allowed_categories_str.split(",")}
+        # Parse allowed categories. Unset/empty means nothing is configured
+        # yet, so deny everything until the operator explicitly opts in --
+        # fail closed rather than defaulting to "all" categories with write
+        # access.
+        allowed_categories_str = os.getenv("MCP_ALLOWED_CATEGORIES", "").strip()
+        allowed_categories = {
+            cat.strip().lower() for cat in allowed_categories_str.split(",") if cat.strip()
+        }
 
         # Build category permissions
         category_permissions: dict[ToolCategory, Permission] = {}
 
-        if "all" in allowed_categories:
+        if not allowed_categories:
+            category_permissions[ToolCategory.ALL] = Permission.DENIED
+        elif "all" in allowed_categories:
             category_permissions[ToolCategory.ALL] = Permission.WRITE
         else:
             for cat in ToolCategory:
@@ -283,7 +290,7 @@ class AccessController:
             max_entries = DEFAULT_ACCESS_LOG_MAX_ENTRIES
 
         policy = AccessPolicy(
-            default_permission=Permission.READ_ONLY,
+            default_permission=Permission.DENIED,
             category_permissions=category_permissions,
             denied_tools=denied_tools,
             allowed_groups=allowed_groups,

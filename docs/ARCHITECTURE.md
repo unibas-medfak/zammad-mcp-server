@@ -473,7 +473,7 @@ def test_get_ticket_success(mock_client: MagicMock) -> None:
 | `ZAMMAD_OAUTH2_TOKEN` | No* | - | OAuth2 token |
 | `ZAMMAD_USERNAME` | No* | - | Basic auth username |
 | `ZAMMAD_PASSWORD` | No* | - | Basic auth password |
-| `MCP_ALLOWED_CATEGORIES` | No | `all` | Allowed tool categories |
+| `MCP_ALLOWED_CATEGORIES` | No | *(unset = deny all)* | Allowed tool categories |
 | `MCP_DENIED_TOOLS` | No | - | Denied tools (comma-separated) |
 | `MCP_ALLOWED_GROUPS` | No | - | Allowed groups (comma-separated) |
 | `LOG_LEVEL` | No | `INFO` | Logging level |
