@@ -65,8 +65,7 @@ Zammad's own migration path, not by this compose file.
 ## Verify connectivity
 
 After configuring `ZAMMAD_URL` and `ZAMMAD_HTTP_TOKEN`, run the MCP tool
-`health_check`, then `get_server_info` to read the connected Zammad version from your
-instance.
+`get_server_info` to read the connected Zammad version from your instance.
 
 ## Reporting issues
 

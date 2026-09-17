@@ -88,7 +88,7 @@ Full guides, security checklists, and deployment notes live on the Open Ticket A
 | Page | What you will learn |
 | --- | --- |
 | [Zammad MCP Server (overview)](https://openticketai.com/en/docs/zammad-mcp-server/) | Who it is for and how it fits the Zammad + AI landscape |
-| [Quick Start](https://openticketai.com/en/docs/zammad-mcp-server/quick-start/) | Install and run `health_check` in minutes |
+| [Quick Start](https://openticketai.com/en/docs/zammad-mcp-server/quick-start/) | Install and run `get_current_user` in minutes |
 | [Claude & Cursor Setup](https://openticketai.com/en/docs/zammad-mcp-server/claude-cursor/) | MCP client configuration |
 | [Configuration](https://openticketai.com/en/docs/zammad-mcp-server/configuration/) | Environment variables and access policies |
 | [Tools Reference](https://openticketai.com/en/docs/zammad-mcp-server/tools/) | All MCP tools by category |
@@ -177,7 +177,7 @@ Add to `claude_desktop_config.json` or Cursor **Settings → MCP**:
 }
 ```
 
-Restart the app after saving. Ask: *"Run health_check on Zammad"* or *"List open tickets."*
+Restart the app after saving. Ask: *"Who am I in Zammad?"* or *"List open tickets."*
 
 ## Development Environment
 
@@ -245,7 +245,6 @@ The server provides 30+ MCP tools for Zammad, organized into categories. Full re
 - `list_groups` - List all groups
 
 ### System
-- `health_check` - Check server health
 - `get_server_info` - Get Zammad version/info
 - `get_allowed_tools` - List accessible tools
 

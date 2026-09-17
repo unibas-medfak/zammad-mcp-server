@@ -145,25 +145,6 @@ def check_access(tool_name: str, required_permission: Permission) -> None:
 # ==================== System Tools ====================
 
 @mcp.tool()
-def health_check() -> dict[str, Any]:
-    """Check the health of the Zammad MCP Server and its connection to Zammad.
-
-    Returns:
-        Health status information including server status and connection details.
-    """
-    check_access("health_check", Permission.READ_ONLY)
-    client = get_client()
-
-    zammad_health = client.health_check()
-
-    return {
-        "mcp_server": "healthy",
-        "zammad_connection": zammad_health,
-        "allowed_tools_count": len(get_access_controller().get_allowed_tools()),
-    }
-
-
-@mcp.tool()
 def get_server_info() -> dict[str, Any]:
     """Get information about the Zammad server.
 

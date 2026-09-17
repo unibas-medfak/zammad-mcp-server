@@ -6,40 +6,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-class TestHealthCheckTool:
-    """Test suite for health_check tool."""
-
-    def test_health_check_success(self, unrestricted_controller: Any) -> None:
-        """Test health check with working connection."""
-        with patch("zammad_mcp_server.server.get_client") as mock_get_client, \
-             patch("zammad_mcp_server.server.get_access_controller") as mock_get_controller:
-
-            mock_client = MagicMock()
-            mock_client.health_check.return_value = {"status": "healthy", "response": {"version": "6.0"}}
-            mock_get_client.return_value = mock_client
-            mock_get_controller.return_value = unrestricted_controller
-
-            from zammad_mcp_server.server import health_check
-            result = health_check()
-
-            assert result["mcp_server"] == "healthy"
-            assert result["zammad_connection"]["status"] == "healthy"
-
-    def test_health_check_access_denied(self, restricted_controller: Any) -> None:
-        """Test health check with read-only access."""
-        with patch("zammad_mcp_server.server.get_client") as mock_get_client, \
-             patch("zammad_mcp_server.server.get_access_controller") as mock_get_controller:
-
-            mock_client = MagicMock()
-            mock_get_client.return_value = mock_client
-            mock_get_controller.return_value = restricted_controller
-
-            from zammad_mcp_server.server import health_check
-            # health_check should work with read-only access
-            result = health_check()
-            assert result["mcp_server"] == "healthy"
-
-
 class TestTicketTools:
     """Test suite for ticket-related tools."""
 

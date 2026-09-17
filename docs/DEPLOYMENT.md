@@ -692,7 +692,7 @@ livenessProbe:
 ```bash
 # Test Zammad connection
 curl -H "Authorization: Token token=$ZAMMAD_HTTP_TOKEN" \
-  "$ZAMMAD_URL/api/v1/ping"
+  "$ZAMMAD_URL/api/v1/users/me"
 
 # Check logs
 docker logs <container_id>

@@ -79,13 +79,12 @@ class TestZammadClientInitialization:
 class TestZammadClientRequests:
     """Test suite for ZammadClient HTTP requests."""
 
-    def test_health_check_success(self, zammad_api_mock: Any) -> None:
-        """Test successful health check."""
+    def test_get_server_info(self, zammad_api_mock: Any) -> None:
+        """Test fetching server version info."""
         client = ZammadClient()
-        result = client.health_check()
+        result = client.get_server_info()
 
-        assert result["status"] == "healthy"
-        assert "response" in result
+        assert result["version"] == "6.0.0"
 
     def test_get_ticket(self, zammad_api_mock: Any) -> None:
         """Test getting a ticket."""
@@ -289,17 +288,13 @@ class TestZammadClientErrors:
 
     def test_authentication_error(self, respx_mock: respx.MockRouter) -> None:
         """Test handling of 401 authentication error."""
-        respx_mock.get("http://test-zammad.local/api/v1/ping").mock(
+        respx_mock.get("http://test-zammad.local/api/v1/users/me").mock(
             return_value=Response(401, json={"error": "Unauthorized"})
         )
 
         client = ZammadClient()
-
-        # health_check() reports rather than raises, so the MCP tool can surface
-        # the failure; the underlying request still raises AuthenticationError.
-        assert client.health_check()["status"] == "unhealthy"
         with pytest.raises(AuthenticationError):
-            client._request("GET", "/ping")
+            client._request("GET", "/users/me")
 
     def test_not_found_error(self, respx_mock: respx.MockRouter) -> None:
         """Test handling of 404 not found error."""
@@ -313,25 +308,23 @@ class TestZammadClientErrors:
 
     def test_server_error(self, respx_mock: respx.MockRouter) -> None:
         """Test handling of 500 server error."""
-        respx_mock.get("http://test-zammad.local/api/v1/ping").mock(
+        respx_mock.get("http://test-zammad.local/api/v1/users/me").mock(
             return_value=Response(500, text="Internal Server Error")
         )
 
         client = ZammadClient()
-
-        assert client.health_check()["status"] == "unhealthy"
         with pytest.raises(ZammadClientError):
-            client._request("GET", "/ping")
+            client._request("GET", "/users/me")
 
     def test_network_error(self, respx_mock: respx.MockRouter) -> None:
         """Test handling of network errors."""
-        respx_mock.get("http://test-zammad.local/api/v1/ping").mock(
+        respx_mock.get("http://test-zammad.local/api/v1/users/me").mock(
             side_effect=httpx.ConnectError("Connection failed")
         )
 
         client = ZammadClient()
-        result = client.health_check()
-        assert result["status"] == "unhealthy"
+        with pytest.raises(ZammadClientError):
+            client._request("GET", "/users/me")
 
 
 class TestClientContextManager:

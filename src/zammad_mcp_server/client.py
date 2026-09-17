@@ -177,17 +177,9 @@ class ZammadClient:
         except httpx.RequestError as e:
             raise ZammadClientError(f"Request failed: {e}")
 
-    def health_check(self) -> dict[str, Any]:
-        """Check if the Zammad server is accessible."""
-        try:
-            result = self._request("GET", "/ping")
-            return {"status": "healthy", "response": result}
-        except Exception as e:
-            return {"status": "unhealthy", "error": str(e)}
-
     def get_server_info(self) -> dict[str, Any]:
         """Get Zammad server information."""
-        return self._request("GET", "/system/")  # type: ignore
+        return self._request("GET", "/version")  # type: ignore
 
     # Ticket operations
 

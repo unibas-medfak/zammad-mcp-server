@@ -80,7 +80,6 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
     "get_priorities": ToolCategory.ADMIN,
     "get_tags": ToolCategory.ADMIN,
     # System tools
-    "health_check": ToolCategory.SYSTEM,
     "get_server_info": ToolCategory.SYSTEM,
 }
 
