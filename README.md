@@ -94,6 +94,7 @@ Full guides, security checklists, and deployment notes live on the Open Ticket A
 | [Tools Reference](https://openticketai.com/en/docs/zammad-mcp-server/tools/) | All MCP tools by category |
 | [Security](https://openticketai.com/en/docs/zammad-mcp-server/security/) | Tokens, least privilege, production checklist |
 | [Deployment](https://openticketai.com/en/docs/zammad-mcp-server/deployment/) | Docker, SSE, and production notes |
+| [Configuration reference (GitHub)](docs/CONFIGURATION.md) | Environment variables as implemented, and where the website differs |
 | [Zammad compatibility (GitHub)](docs/COMPATIBILITY.md) | Supported Zammad versions and dev-stack tags |
 
 **Tutorial:** [Zammad MCP Server — setup and usage (blog)](https://openticketai.com/en/docs/blog/zammad-mcp-server-setup-and-usage/)
@@ -132,7 +133,7 @@ uv sync --extra dev
 
 ### Configuration
 
-See the [Configuration guide](https://openticketai.com/en/docs/zammad-mcp-server/configuration/) for all environment variables and access policies.
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for all environment variables and access policies.
 
 Create a `.env` file:
 
@@ -390,7 +391,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed technical documentation
 
 ## Authentication Methods
 
-The server supports three authentication methods. Details: [Configuration — authentication](https://openticketai.com/en/docs/zammad-mcp-server/configuration/)
+The server supports three authentication methods. Details: [Configuration — Zammad connection](docs/CONFIGURATION.md#zammad-connection)
 
 ### 1. API Token (Recommended)
 
