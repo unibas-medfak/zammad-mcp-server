@@ -299,6 +299,53 @@ class TestAccessController:
         assert admin_info["accessible"] == "False"
 
 
+class TestRequiredPermissions:
+    """Test that each tool's required permission level is enforced."""
+
+    def test_denied_tools_enforced_for_write_tools(self) -> None:
+        """A denied write tool stays denied even when its category grants WRITE."""
+        policy = AccessPolicy(
+            default_permission=Permission.WRITE,
+            denied_tools={"create_ticket", "update_*"},
+        )
+        controller = AccessController(policy)
+
+        assert controller.can_execute("create_ticket") is False
+        assert controller.can_execute("update_user") is False
+        assert controller.can_execute("create_article") is True
+
+    def test_write_tools_need_write(self) -> None:
+        """Read-only policies can't run write tools."""
+        controller = AccessController(AccessPolicy(default_permission=Permission.READ_ONLY))
+
+        assert controller.can_execute("get_ticket") is True
+        assert controller.can_execute("create_ticket") is False
+
+    def test_delete_tools_need_admin(self) -> None:
+        """Delete tools need ADMIN, not just WRITE."""
+        write = AccessController(AccessPolicy(default_permission=Permission.WRITE))
+        admin = AccessController(AccessPolicy(default_permission=Permission.ADMIN))
+
+        for tool in ("delete_ticket", "delete_user", "delete_organization"):
+            assert write.can_execute(tool) is False
+            assert admin.can_execute(tool) is True
+
+    def test_unknown_tool_denied(self) -> None:
+        """Tools missing from TOOL_CATEGORIES fail closed."""
+        controller = AccessController(AccessPolicy(default_permission=Permission.ADMIN))
+
+        assert controller.can_execute("not_a_tool") is False
+
+    def test_get_tool_info_reports_required_permission(self) -> None:
+        """get_tool_info shows the required level and whether it is met."""
+        controller = AccessController(AccessPolicy(default_permission=Permission.WRITE))
+
+        info = {i["tool"]: i for i in controller.get_tool_info()}
+        assert info["delete_ticket"]["required_permission"] == "ADMIN"
+        assert info["delete_ticket"]["accessible"] == "False"
+        assert info["create_ticket"]["accessible"] == "True"
+
+
 class TestAccessControllerFromEnv:
     """Test suite for AccessController.from_env factory method."""
 
@@ -310,7 +357,27 @@ class TestAccessControllerFromEnv:
         controller = AccessController.from_env()
 
         assert controller.can_write("create_ticket") is True
+        assert controller.can_execute("create_ticket") is True
         assert controller.can_execute("delete_ticket") is False
+
+    def test_from_env_denied_write_tool(self, monkeypatch: Any) -> None:
+        """MCP_DENIED_TOOLS blocks write tools, not only admin ones."""
+        monkeypatch.setenv("MCP_ALLOWED_CATEGORIES", "all")
+        monkeypatch.setenv("MCP_DENIED_TOOLS", "create_ticket")
+
+        controller = AccessController.from_env()
+
+        assert controller.can_execute("create_ticket") is False
+        assert controller.can_execute("update_ticket") is True
+
+    def test_from_env_never_grants_delete(self, monkeypatch: Any) -> None:
+        """Categories from the environment grant WRITE, so deletes stay unavailable."""
+        monkeypatch.setenv("MCP_ALLOWED_CATEGORIES", "all")
+        monkeypatch.delenv("MCP_DENIED_TOOLS", raising=False)
+
+        controller = AccessController.from_env()
+
+        assert "delete_ticket" not in controller.get_allowed_tools()
 
     def test_from_env_specific_categories(self, monkeypatch: Any) -> None:
         """Test creating controller with specific categories."""

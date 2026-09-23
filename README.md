@@ -261,6 +261,10 @@ The server includes a sophisticated access control system so you can safely conn
 - **WRITE** - Can read and modify data
 - **ADMIN** - Full access including deletion
 
+Tools and resources the policy doesn't allow, whether their category is denied, they're
+in `MCP_DENIED_TOOLS`, or they need a higher level than granted, are hidden from
+clients: they don't appear in the tool list, and calling them fails as an unknown tool.
+
 ### Configuration via Environment Variables
 
 ```env
@@ -283,8 +287,9 @@ MCP_ACCESS_LOG_MAX_ENTRIES=1000
 
 Without `MCP_ALLOWED_CATEGORIES` set, every tool is denied — a fresh install with
 no access-control configuration does nothing until you explicitly opt in. Setting
-it (even to `all`) grants `WRITE`-level access to the categories you list;
-combine with `MCP_DENIED_TOOLS` to carve out destructive tools like deletes.
+it (even to `all`) grants `WRITE`-level access to the categories you list, so the
+`delete_*` tools, which need `ADMIN`, stay unavailable. Use `MCP_DENIED_TOOLS`
+(wildcards allowed, e.g. `create_*,update_*`) to carve out further tools.
 
 ### Client authentication (HTTP transport)
 
@@ -311,7 +316,9 @@ also accepts a JSON object mapping token to claims:
 ZAMMAD_MCP_AUTH_TOKENS={"s3cr3t-a": {"client_id": "claude", "scopes": ["zammad:read"]}}
 ```
 
-Clients send the token in the `Authorization` header:
+Clients send **only the token**, the part after the colon, in the `Authorization`
+header. The `client_id` before the colon is just a label for logs; sending
+`claude:s3cr3t-a` instead of `s3cr3t-a` is rejected with `invalid_token` (401):
 
 ```json
 {

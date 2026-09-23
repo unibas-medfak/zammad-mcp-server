@@ -7,15 +7,19 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from collections.abc import Sequence
 from typing import Any, AsyncIterator
 
 import structlog
 from fastmcp import FastMCP, Context
+from fastmcp.resources import Resource, ResourceTemplate
+from fastmcp.server.transforms import GetResourceNext, GetResourceTemplateNext, GetToolNext, Transform
+from fastmcp.tools import Tool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from zammad_mcp_server import __version__
-from zammad_mcp_server.access_control import AccessController, Permission
+from zammad_mcp_server.access_control import AccessController
 from zammad_mcp_server.auth import build_auth_provider, require_auth_for_transport
 from zammad_mcp_server.client import ZammadClient, ZammadClientError, NotFoundError
 from zammad_mcp_server.models import (
@@ -108,6 +112,62 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
             logger.info("client_closed")
 
 
+# Resources are gated by the tool that returns the same data
+RESOURCE_TOOLS: dict[str, str] = {
+    "zammad://ticket/{ticket_id}": "get_ticket",
+    "zammad://user/{user_id}": "get_user",
+    "zammad://config/states": "get_ticket_states",
+}
+
+
+def is_tool_allowed(tool_name: str) -> bool:
+    """Check a tool against the active policy, denying everything before it loads."""
+    return _access_controller is not None and _access_controller.can_execute(tool_name)
+
+
+class PolicyVisibility(Transform):
+    """Hide tools and resources the access policy doesn't allow.
+
+    Hidden components are left out of list responses and can't be looked up
+    by name, so clients never see them and calls to them fail as unknown.
+    The policy is read on every request, so this is registered once.
+    """
+
+    def _resource_allowed(self, uri: str) -> bool:
+        tool_name = RESOURCE_TOOLS.get(uri)
+        return tool_name is not None and is_tool_allowed(tool_name)
+
+    async def list_tools(self, tools: Sequence[Tool]) -> Sequence[Tool]:
+        return [t for t in tools if is_tool_allowed(t.name)]
+
+    async def get_tool(self, name: str, call_next: GetToolNext, *, version: Any = None) -> Tool | None:
+        return await call_next(name, version=version) if is_tool_allowed(name) else None
+
+    async def list_resources(self, resources: Sequence[Resource]) -> Sequence[Resource]:
+        return [r for r in resources if self._resource_allowed(str(r.uri))]
+
+    async def get_resource(
+        self, uri: str, call_next: GetResourceNext, *, version: Any = None
+    ) -> Resource | None:
+        resource = await call_next(uri, version=version)
+        if resource is None or not self._resource_allowed(str(resource.uri)):
+            return None
+        return resource
+
+    async def list_resource_templates(
+        self, templates: Sequence[ResourceTemplate]
+    ) -> Sequence[ResourceTemplate]:
+        return [t for t in templates if self._resource_allowed(t.uri_template)]
+
+    async def get_resource_template(
+        self, uri: str, call_next: GetResourceTemplateNext, *, version: Any = None
+    ) -> ResourceTemplate | None:
+        template = await call_next(uri, version=version)
+        if template is None or not self._resource_allowed(template.uri_template):
+            return None
+        return template
+
+
 # Create FastMCP instance
 mcp = FastMCP(
     "Zammad MCP Server",
@@ -115,6 +175,7 @@ mcp = FastMCP(
     lifespan=app_lifespan,
     auth=build_auth_provider(),
 )
+mcp.add_transform(PolicyVisibility())
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -124,18 +185,14 @@ async def health_endpoint(request: Request) -> JSONResponse:
 
 
 # Helper function to check access
-def check_access(tool_name: str, required_permission: Permission) -> None:
-    """Check if access is allowed for a tool."""
+def check_access(tool_name: str) -> None:
+    """Check if access is allowed for a tool.
+
+    PolicyVisibility already hides disallowed tools; this is the second layer
+    for anything that reaches a tool function directly.
+    """
     controller = get_access_controller()
-    allowed = False
-
-    if required_permission == Permission.ADMIN:
-        allowed = controller.can_admin(tool_name)
-    elif required_permission == Permission.WRITE:
-        allowed = controller.can_write(tool_name)
-    elif required_permission == Permission.READ_ONLY:
-        allowed = controller.can_read(tool_name)
-
+    allowed = controller.can_execute(tool_name)
     controller.log_access(tool_name, allowed)
 
     if not allowed:
@@ -172,7 +229,7 @@ def get_server_info() -> dict[str, Any]:
     Returns:
         Server version, configuration, and status information.
     """
-    check_access("get_server_info", Permission.READ_ONLY)
+    check_access("get_server_info")
     client = get_client()
     return client.get_server_info()
 
@@ -184,7 +241,7 @@ def get_allowed_tools() -> list[dict[str, str]]:
     Returns:
         List of tools with their categories and permission levels.
     """
-    check_access("get_allowed_tools", Permission.READ_ONLY)
+    check_access("get_allowed_tools")
     controller = get_access_controller()
     return controller.get_tool_info()
 
@@ -205,7 +262,7 @@ def get_ticket(
     Returns:
         Ticket details including metadata and optionally articles.
     """
-    check_access("get_ticket", Permission.READ_ONLY)
+    check_access("get_ticket")
     client = get_client()
 
     try:
@@ -249,7 +306,7 @@ def search_tickets(
     Returns:
         Search results with tickets and pagination info.
     """
-    check_access("search_tickets", Permission.READ_ONLY)
+    check_access("search_tickets")
     client = get_client()
     controller = get_access_controller()
 
@@ -309,7 +366,7 @@ def create_ticket(
     Returns:
         The created ticket details.
     """
-    check_access("create_ticket", Permission.WRITE)
+    check_access("create_ticket")
     check_group_access(group)
     client = get_client()
 
@@ -359,7 +416,7 @@ def update_ticket(
     Returns:
         The updated ticket details.
     """
-    check_access("update_ticket", Permission.WRITE)
+    check_access("update_ticket")
     check_group_access(group)
     try:
         check_ticket_access(ticket_id)
@@ -406,7 +463,7 @@ def delete_ticket(ticket_id: int) -> dict[str, Any]:
     Returns:
         Success status.
     """
-    check_access("delete_ticket", Permission.ADMIN)
+    check_access("delete_ticket")
     client = get_client()
 
     try:
@@ -427,7 +484,7 @@ def get_ticket_articles(ticket_id: int) -> dict[str, Any]:
     Returns:
         List of articles in the ticket.
     """
-    check_access("get_ticket_articles", Permission.READ_ONLY)
+    check_access("get_ticket_articles")
     client = get_client()
 
     try:
@@ -466,7 +523,7 @@ def create_article(
     Returns:
         The created article details.
     """
-    check_access("create_article", Permission.WRITE)
+    check_access("create_article")
     try:
         check_ticket_access(ticket_id)
     except NotFoundError:
@@ -508,7 +565,7 @@ def get_ticket_stats(
     Returns:
         Ticket statistics including counts by state, group, and priority.
     """
-    check_access("get_ticket_stats", Permission.READ_ONLY)
+    check_access("get_ticket_stats")
     check_group_access(group)
     client = get_client()
     controller = get_access_controller()
@@ -532,7 +589,7 @@ def get_ticket_states() -> list[dict[str, Any]]:
     Returns:
         List of available ticket states with their properties.
     """
-    check_access("get_ticket_states", Permission.READ_ONLY)
+    check_access("get_ticket_states")
     client = get_client()
     return client.get_ticket_states()
 
@@ -544,7 +601,7 @@ def get_priorities() -> list[dict[str, Any]]:
     Returns:
         List of available priority levels.
     """
-    check_access("get_priorities", Permission.READ_ONLY)
+    check_access("get_priorities")
     client = get_client()
     return client.get_priorities()
 
@@ -561,7 +618,7 @@ def get_user(user_id: int) -> dict[str, Any]:
     Returns:
         User details.
     """
-    check_access("get_user", Permission.READ_ONLY)
+    check_access("get_user")
     client = get_client()
 
     try:
@@ -587,7 +644,7 @@ def search_users(
     Returns:
         Search results with users.
     """
-    check_access("search_users", Permission.READ_ONLY)
+    check_access("search_users")
     client = get_client()
 
     result = client.search_users(
@@ -632,7 +689,7 @@ def create_user(
     Returns:
         The created user details.
     """
-    check_access("create_user", Permission.WRITE)
+    check_access("create_user")
     client = get_client()
 
     request = UserCreateRequest(
@@ -679,7 +736,7 @@ def update_user(
     Returns:
         The updated user details.
     """
-    check_access("update_user", Permission.WRITE)
+    check_access("update_user")
     client = get_client()
 
     updates = {
@@ -711,7 +768,7 @@ def delete_user(user_id: int) -> dict[str, Any]:
     Returns:
         Success status.
     """
-    check_access("delete_user", Permission.ADMIN)
+    check_access("delete_user")
     client = get_client()
 
     try:
@@ -728,7 +785,7 @@ def get_current_user() -> dict[str, Any]:
     Returns:
         Current user details.
     """
-    check_access("get_current_user", Permission.READ_ONLY)
+    check_access("get_current_user")
     client = get_client()
 
     user = client.get_current_user()
@@ -747,7 +804,7 @@ def get_organization(org_id: int) -> dict[str, Any]:
     Returns:
         Organization details.
     """
-    check_access("get_organization", Permission.READ_ONLY)
+    check_access("get_organization")
     client = get_client()
 
     try:
@@ -773,7 +830,7 @@ def search_organizations(
     Returns:
         Search results with organizations.
     """
-    check_access("search_organizations", Permission.READ_ONLY)
+    check_access("search_organizations")
     client = get_client()
 
     result = client.search_organizations(
@@ -810,7 +867,7 @@ def create_organization(
     Returns:
         The created organization details.
     """
-    check_access("create_organization", Permission.WRITE)
+    check_access("create_organization")
     client = get_client()
 
     request = OrganizationCreateRequest(
@@ -847,7 +904,7 @@ def update_organization(
     Returns:
         The updated organization details.
     """
-    check_access("update_organization", Permission.WRITE)
+    check_access("update_organization")
     client = get_client()
 
     updates = {
@@ -876,7 +933,7 @@ def delete_organization(org_id: int) -> dict[str, Any]:
     Returns:
         Success status.
     """
-    check_access("delete_organization", Permission.ADMIN)
+    check_access("delete_organization")
     client = get_client()
 
     try:
@@ -898,7 +955,7 @@ def get_group(group_id: int) -> dict[str, Any]:
     Returns:
         Group details.
     """
-    check_access("get_group", Permission.READ_ONLY)
+    check_access("get_group")
     client = get_client()
 
     try:
@@ -917,7 +974,7 @@ def list_groups() -> dict[str, Any]:
     Returns:
         List of all groups.
     """
-    check_access("list_groups", Permission.READ_ONLY)
+    check_access("list_groups")
     client = get_client()
 
     controller = get_access_controller()
@@ -944,7 +1001,7 @@ def create_group(
     Returns:
         The created group details.
     """
-    check_access("create_group", Permission.WRITE)
+    check_access("create_group")
     client = get_client()
 
     request = GroupCreateRequest(name=name, active=active, note=note)
@@ -957,7 +1014,7 @@ def create_group(
 @mcp.resource("zammad://ticket/{ticket_id}")
 def get_ticket_resource(ticket_id: str) -> str:
     """Get ticket details as a formatted resource."""
-    check_access("get_ticket", Permission.READ_ONLY)
+    check_access("get_ticket")
     client = get_client()
 
     try:
@@ -999,7 +1056,7 @@ def get_ticket_resource(ticket_id: str) -> str:
 @mcp.resource("zammad://user/{user_id}")
 def get_user_resource(user_id: str) -> str:
     """Get user details as a formatted resource."""
-    check_access("get_user", Permission.READ_ONLY)
+    check_access("get_user")
     client = get_client()
 
     try:
@@ -1021,7 +1078,7 @@ def get_user_resource(user_id: str) -> str:
 @mcp.resource("zammad://config/states")
 def get_states_resource() -> str:
     """Get available ticket states as a resource."""
-    check_access("get_ticket_states", Permission.READ_ONLY)
+    check_access("get_ticket_states")
     client = get_client()
 
     states = client.get_ticket_states()

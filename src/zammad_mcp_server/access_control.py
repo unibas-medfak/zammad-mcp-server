@@ -53,8 +53,6 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
     "get_ticket_articles": ToolCategory.TICKETS,
     "create_article": ToolCategory.TICKETS,
     "get_ticket_stats": ToolCategory.TICKETS,
-    "merge_tickets": ToolCategory.TICKETS,
-    "link_tickets": ToolCategory.TICKETS,
     # User tools
     "get_user": ToolCategory.USERS,
     "search_users": ToolCategory.USERS,
@@ -72,16 +70,33 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
     "get_group": ToolCategory.GROUPS,
     "list_groups": ToolCategory.GROUPS,
     "create_group": ToolCategory.GROUPS,
-    # Search tools
-    "search": ToolCategory.SEARCH,
-    "full_text_search": ToolCategory.SEARCH,
     # Admin tools
     "get_ticket_states": ToolCategory.ADMIN,
     "get_priorities": ToolCategory.ADMIN,
-    "get_tags": ToolCategory.ADMIN,
     # System tools
     "get_server_info": ToolCategory.SYSTEM,
+    "get_allowed_tools": ToolCategory.SYSTEM,
 }
+
+# Permission level each tool needs; tools not listed here need READ_ONLY
+TOOL_REQUIRED_PERMISSIONS: dict[str, Permission] = {
+    "create_ticket": Permission.WRITE,
+    "update_ticket": Permission.WRITE,
+    "delete_ticket": Permission.ADMIN,
+    "create_article": Permission.WRITE,
+    "create_user": Permission.WRITE,
+    "update_user": Permission.WRITE,
+    "delete_user": Permission.ADMIN,
+    "create_organization": Permission.WRITE,
+    "update_organization": Permission.WRITE,
+    "delete_organization": Permission.ADMIN,
+    "create_group": Permission.WRITE,
+}
+
+
+def required_permission(tool_name: str) -> Permission:
+    """Get the permission level a tool needs."""
+    return TOOL_REQUIRED_PERMISSIONS.get(tool_name, Permission.READ_ONLY)
 
 
 @dataclass
@@ -134,14 +149,16 @@ class AccessController:
         )
 
     def can_execute(self, tool_name: str) -> bool:
-        """Check if a tool can be executed."""
-        # Check explicitly denied tools first
-        if self._is_denied(tool_name):
+        """Check if a tool can be executed under the current policy.
+
+        Unknown tools, explicitly denied tools, and tools needing a higher
+        permission level than the policy grants are all refused.
+        """
+        if tool_name not in TOOL_CATEGORIES or self._is_denied(tool_name):
             return False
 
-        # Get permission level
         permission = self._get_permission(tool_name)
-        return permission != Permission.DENIED
+        return permission.value >= required_permission(tool_name).value
 
     def can_read(self, tool_name: str) -> bool:
         """Check if read operations are allowed."""
@@ -325,12 +342,11 @@ class AccessController:
         """Get detailed information about all tools and their permissions."""
         info = []
         for tool_name, category in sorted(TOOL_CATEGORIES.items()):
-            permission = self._get_permission(tool_name)
-            is_denied = self._is_denied(tool_name)
             info.append({
                 "tool": tool_name,
                 "category": category.value,
-                "permission": permission.name,
-                "accessible": str(not is_denied and permission != Permission.DENIED),
+                "permission": self._get_permission(tool_name).name,
+                "required_permission": required_permission(tool_name).name,
+                "accessible": str(self.can_execute(tool_name)),
             })
         return info

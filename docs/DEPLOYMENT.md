@@ -548,12 +548,20 @@ refuse to start.
 | `ZAMMAD_MCP_AUTH_REQUIRED_SCOPES` | Scopes every token must carry | `zammad:read,zammad:write` |
 | `ZAMMAD_MCP_ALLOW_UNAUTHENTICATED` | Set to `true` to serve HTTP with no auth (only when the port is protected another way) | `false` |
 
+In the `client_id:token` form, the client sends **only the token** (the part after the
+colon) as `Authorization: Bearer <token>`. The `client_id` is just a label; sending
+`claude:s3cr3t-a` as the bearer token is rejected with `invalid_token` (401).
+
 ```bash
+# Generate the token first so you can hand it to the client
+MCP_TOKEN=$(openssl rand -hex 32)
+echo "$MCP_TOKEN"   # configure the client with: Authorization: Bearer $MCP_TOKEN
+
 docker run -p 8000:8000 \
   -e ZAMMAD_URL=https://your-zammad.com \
   -e ZAMMAD_HTTP_TOKEN=your_token \
   -e ZAMMAD_MCP_AUTH=static \
-  -e ZAMMAD_MCP_AUTH_TOKENS="claude:$(openssl rand -hex 32)" \
+  -e ZAMMAD_MCP_AUTH_TOKENS="claude:$MCP_TOKEN" \
   zammad-mcp-server
 ```
 
@@ -621,17 +629,21 @@ MAX_CACHE_SIZE=1000     # Maximum cache entries
 
 ```env
 # Production: Read-only for safety
-MCP_ALLOWED_CATEGORIES=tickets,users,organizations,groups,system
-MCP_DENIED_TOOLS=delete_*
+MCP_ALLOWED_CATEGORIES=tickets,users,organizations,groups,admin,system
+MCP_DENIED_TOOLS=create_*,update_*,delete_*
 
 # With write access: Deny destructive operations
 MCP_ALLOWED_CATEGORIES=all
 MCP_DENIED_TOOLS=delete_ticket,delete_user,delete_organization
 
-# Admin access: Allow everything (use with caution)
+# Full write access (use with caution)
 MCP_ALLOWED_CATEGORIES=all
 # (No MCP_DENIED_TOOLS)
 ```
+
+Categories grant `WRITE`, never `ADMIN`, so the `delete_*` tools are unavailable in
+every configuration above; denying them explicitly keeps it that way if that changes.
+Tools the policy doesn't allow are hidden from clients' tool lists.
 
 Leaving `MCP_ALLOWED_CATEGORIES` unset denies every tool -- there is no
 "unconfigured" state that accidentally grants access.

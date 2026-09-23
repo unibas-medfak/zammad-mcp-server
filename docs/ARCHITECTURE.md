@@ -381,7 +381,9 @@ except ZammadClientError as e:
 
 1. Define tool function with `@mcp.tool()` decorator
 2. Implement using `get_client()`
-3. Add access control check
+3. Add access control check, and register the tool in `TOOL_CATEGORIES` (plus
+   `TOOL_REQUIRED_PERMISSIONS` if it needs more than `READ_ONLY`) in `access_control.py`;
+   unregistered tools are denied and hidden
 4. Return Pydantic model instance or dict
 5. Add tests with mocked client
 
@@ -390,7 +392,7 @@ except ZammadClientError as e:
 @mcp.tool()
 def my_new_tool(param: str) -> dict[str, Any]:
     """Description of what the tool does."""
-    check_access("my_new_tool", Permission.READ_ONLY)
+    check_access("my_new_tool")
     client = get_client()
     
     result = client.some_operation(param)

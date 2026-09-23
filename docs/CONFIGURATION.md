@@ -31,8 +31,8 @@ If more than one method is set, `ZAMMAD_HTTP_TOKEN` wins.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MCP_ALLOWED_CATEGORIES` | *(unset: deny all)* | Comma-separated categories that get **write** access: `tickets`, `users`, `organizations`, `groups`, `search`, `admin`, `system`, or `all` |
-| `MCP_DENIED_TOOLS` | — | Comma-separated tool names to block, whatever their category |
+| `MCP_ALLOWED_CATEGORIES` | *(unset: deny all)* | Comma-separated categories that get **write** access: `tickets`, `users`, `organizations`, `groups`, `admin`, `system`, or `all` |
+| `MCP_DENIED_TOOLS` | — | Comma-separated tool names to block, whatever their category. Wildcards work, e.g. `create_*,update_*` |
 | `MCP_ALLOWED_GROUPS` | *(all groups)* | Comma-separated Zammad group names. Tickets, articles, stats and groups outside these are hidden, and tickets in them can't be created, updated, deleted or moved into them |
 | `MCP_ACCESS_LOG_MAX_ENTRIES` | `1000` | Number of entries kept in the in-memory access log (`0` disables it) |
 
@@ -40,10 +40,15 @@ If more than one method is set, `ZAMMAD_HTTP_TOKEN` wins.
 
 | Level | Behavior |
 | --- | --- |
-| `DENIED` | Calls to the tool are refused with a permission error |
+| `DENIED` | Tool is hidden from clients |
 | `READ_ONLY` | View data only |
 | `WRITE` | Create and update |
 | `ADMIN` | Also allows delete operations |
+
+Each tool needs a minimum level: `READ_ONLY` for lookups, `WRITE` for create/update tools,
+`ADMIN` for deletes. A tool is available only if its category grants at least that level and
+it isn't in `MCP_DENIED_TOOLS`. Tools that aren't available, and resources backed by them,
+are hidden: they don't appear in the tool list and calling them fails as an unknown tool.
 
 Categories listed in `MCP_ALLOWED_CATEGORIES` get `WRITE`, never `ADMIN`. So `delete_ticket`,
 `delete_user` and `delete_organization` can't be called through environment configuration at all.
@@ -58,7 +63,11 @@ Keeping them in `MCP_DENIED_TOOLS` does no harm, and it keeps them blocked if th
 | `organizations` | `get_organization`, `search_organizations`, `create_organization`, `update_organization`, `delete_organization` |
 | `groups` | `get_group`, `list_groups`, `create_group` |
 | `admin` | `get_ticket_states`, `get_priorities` |
-| `system` | `get_server_info` |
+| `system` | `get_server_info`, `get_allowed_tools` |
+
+Resources follow the tool that returns the same data: `zammad://ticket/{ticket_id}` needs
+`get_ticket`, `zammad://user/{user_id}` needs `get_user`, and `zammad://config/states` needs
+`get_ticket_states`.
 
 Call `get_allowed_tools` to see which tools the current policy allows.
 
@@ -103,7 +112,7 @@ A network transport won't start without client authentication unless you explici
 | Variable | Default | Description |
 | --- | --- | --- |
 | `ZAMMAD_MCP_AUTH` | `none` | `none` or `static` (bearer tokens) |
-| `ZAMMAD_MCP_AUTH_TOKENS` | — | `client_id:token` pairs, or a JSON object mapping each token to its claims |
+| `ZAMMAD_MCP_AUTH_TOKENS` | — | `client_id:token` pairs, or a JSON object mapping each token to its claims. Clients send only the part after the colon: `Authorization: Bearer <token>` |
 | `ZAMMAD_MCP_AUTH_REQUIRED_SCOPES` | — | Scopes every token must carry, e.g. `zammad:read,zammad:write` |
 | `ZAMMAD_MCP_ALLOW_UNAUTHENTICATED` | — | Set to `true` to serve without auth when the port is already protected some other way |
 
@@ -133,7 +142,6 @@ some others wrong:
 | `MCP_STRIP_HTML` / `body_plain` | Not implemented |
 | `MCP_TRANSPORT`, `MCP_SERVER_HOST`, `MCP_SERVER_PORT` | Actually `ZAMMAD_MCP_TRANSPORT`, `ZAMMAD_MCP_HOST`, `ZAMMAD_MCP_PORT` |
 | `MCP_SERVER_PATH` (`/mcp/`, `/sse/`) | Not configurable |
-| `DENIED` tools are "not exposed to the client" | They're still listed; calling one returns a permission error |
 | "Admin automation" recipe gives full write including deletes | Environment config never grants `ADMIN`, so deletes stay unavailable |
-| Recipe uses the `search` category | No tools currently live in `search`; `get_ticket_states`/`get_priorities` are in `admin` |
+| Recipe uses the `search` category | No tools live in `search`; `get_ticket_states`/`get_priorities` are in `admin` |
 | — | Not mentioned: `MCP_ACCESS_LOG_MAX_ENTRIES`, `LOG_LEVEL`, the `ZAMMAD_MCP_AUTH*` client-auth settings, and the `streamable-http` transport |

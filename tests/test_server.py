@@ -553,6 +553,98 @@ class TestGroupRestrictions:
             get_group(2)
 
 
+class TestPolicyVisibility:
+    """Test that tools and resources outside the policy are hidden from clients."""
+
+    @pytest.fixture
+    def policy_env(self, monkeypatch: Any) -> None:
+        from zammad_mcp_server import server
+
+        monkeypatch.setenv("ZAMMAD_URL", "http://zammad.invalid")
+        monkeypatch.setenv("ZAMMAD_HTTP_TOKEN", "x")
+        monkeypatch.setenv("MCP_ALLOWED_CATEGORIES", "tickets,system")
+        monkeypatch.setenv("MCP_DENIED_TOOLS", "create_ticket")
+        monkeypatch.delenv("MCP_ALLOWED_GROUPS", raising=False)
+        # The lifespan replaces these; monkeypatch restores them afterwards
+        monkeypatch.setattr(server, "_client", None)
+        monkeypatch.setattr(server, "_access_controller", None)
+
+    async def test_only_allowed_components_listed(self, policy_env: None) -> None:
+        from fastmcp import Client
+
+        from zammad_mcp_server.server import mcp
+
+        async with Client(mcp) as client:
+            tools = {t.name for t in await client.list_tools()}
+            templates = {t.uri_template for t in await client.list_resource_templates()}
+            resources = {str(r.uri) for r in await client.list_resources()}
+
+        assert tools == {
+            "get_ticket", "search_tickets", "update_ticket", "get_ticket_articles",
+            "create_article", "get_ticket_stats", "get_server_info", "get_allowed_tools",
+        }
+        assert templates == {"zammad://ticket/{ticket_id}"}
+        assert resources == set()
+
+    @pytest.mark.parametrize("tool", ["create_ticket", "delete_ticket", "get_user"])
+    async def test_hidden_tools_cannot_be_called(self, policy_env: None, tool: str) -> None:
+        from fastmcp import Client
+        from fastmcp.exceptions import ToolError
+
+        from zammad_mcp_server.server import mcp
+
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError, match="Unknown tool"):
+                await client.call_tool(tool, {})
+
+    async def test_hidden_resource_cannot_be_read(self, policy_env: None) -> None:
+        from fastmcp import Client
+
+        from zammad_mcp_server.server import mcp
+
+        async with Client(mcp) as client:
+            with pytest.raises(Exception, match="not found"):
+                await client.read_resource("zammad://user/1")
+
+    async def test_everything_hidden_before_policy_loads(self, monkeypatch: Any) -> None:
+        from zammad_mcp_server import server
+
+        monkeypatch.setattr(server, "_access_controller", None)
+        tools = await server.mcp.local_provider.list_tools()
+
+        assert await server.PolicyVisibility().list_tools(tools) == []
+
+    async def test_registered_components_have_policy_entries(self) -> None:
+        """Every tool is categorised and every resource is gated by a tool."""
+        from zammad_mcp_server.access_control import TOOL_CATEGORIES
+        from zammad_mcp_server.server import RESOURCE_TOOLS, mcp
+
+        tools = {t.name for t in await mcp.local_provider.list_tools()}
+        resources = {str(r.uri) for r in await mcp.local_provider.list_resources()}
+        templates = {t.uri_template for t in await mcp.local_provider.list_resource_templates()}
+
+        assert tools == set(TOOL_CATEGORIES)
+        assert resources | templates == set(RESOURCE_TOOLS)
+        assert set(RESOURCE_TOOLS.values()) <= set(TOOL_CATEGORIES)
+
+
+class TestDeniedToolEnforcement:
+    """Regression: MCP_DENIED_TOOLS used to be ignored for WRITE-level tools."""
+
+    def test_denied_write_tool_refused_on_call(self) -> None:
+        from zammad_mcp_server.access_control import AccessController, AccessPolicy, Permission
+        from zammad_mcp_server.server import create_ticket
+
+        controller = AccessController(
+            AccessPolicy(default_permission=Permission.WRITE, denied_tools={"create_ticket"})
+        )
+        with patch("zammad_mcp_server.server.get_client") as mock_get_client, \
+             patch("zammad_mcp_server.server.get_access_controller", return_value=controller):
+            with pytest.raises(PermissionError, match="create_ticket"):
+                create_ticket(title="x", group="Support")
+            mock_get_client.return_value.create_ticket.assert_not_called()
+
+
 class TestToolInfo:
     """Test suite for tool information."""
 
