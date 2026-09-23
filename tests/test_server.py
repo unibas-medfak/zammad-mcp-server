@@ -455,6 +455,104 @@ class TestGroupTools:
             assert result["count"] == 1
 
 
+class TestGroupRestrictions:
+    """Test that MCP_ALLOWED_GROUPS is enforced on every ticket/group tool."""
+
+    @pytest.fixture
+    def controller(self) -> Any:
+        from zammad_mcp_server.access_control import AccessController, AccessPolicy, Permission
+        return AccessController(
+            AccessPolicy(default_permission=Permission.ADMIN, allowed_groups={"Support"})
+        )
+
+    @pytest.fixture
+    def client(self, controller: Any) -> Any:
+        from zammad_mcp_server.models import Group, Ticket
+
+        tickets = {
+            1: Ticket(id=1, title="Allowed", group="Support"),
+            2: Ticket(id=2, title="Forbidden", group="Admin"),
+        }
+        mock_client = MagicMock()
+        mock_client.get_ticket.side_effect = lambda ticket_id, **_: tickets[ticket_id]
+        mock_client.get_group.side_effect = lambda group_id: Group(
+            id=group_id, name="Support" if group_id == 1 else "Admin"
+        )
+        mock_client.list_groups.return_value = [
+            Group(id=1, name="Support"),
+            Group(id=2, name="Admin"),
+        ]
+        with patch("zammad_mcp_server.server.get_client", return_value=mock_client), \
+             patch("zammad_mcp_server.server.get_access_controller", return_value=controller):
+            yield mock_client
+
+    @pytest.mark.parametrize(
+        ("tool", "kwargs", "client_method"),
+        [
+            ("get_ticket_articles", {}, "get_ticket_articles"),
+            ("create_article", {"body": "hi"}, "create_article"),
+            ("update_ticket", {"title": "x"}, "update_ticket"),
+            ("delete_ticket", {}, "delete_ticket"),
+        ],
+    )
+    def test_ticket_in_forbidden_group_denied(
+        self, client: Any, tool: str, kwargs: dict[str, Any], client_method: str
+    ) -> None:
+        from zammad_mcp_server import server
+
+        with pytest.raises(PermissionError):
+            getattr(server, tool)(ticket_id=2, **kwargs)
+        getattr(client, client_method).assert_not_called()
+
+    def test_ticket_in_allowed_group_permitted(self, client: Any) -> None:
+        from zammad_mcp_server.server import get_ticket_articles
+
+        client.get_ticket_articles.return_value = []
+        assert get_ticket_articles(1)["count"] == 0
+
+    def test_update_ticket_cannot_move_to_forbidden_group(self, client: Any) -> None:
+        from zammad_mcp_server.server import update_ticket
+
+        with pytest.raises(PermissionError, match="Admin"):
+            update_ticket(ticket_id=1, group="Admin")
+        client.update_ticket.assert_not_called()
+
+    def test_create_ticket_in_forbidden_group_denied(self, client: Any) -> None:
+        from zammad_mcp_server.server import create_ticket
+
+        with pytest.raises(PermissionError, match="Admin"):
+            create_ticket(title="x", group="Admin")
+        client.create_ticket.assert_not_called()
+
+    def test_ticket_resource_denied(self, client: Any) -> None:
+        from zammad_mcp_server.server import get_ticket_resource
+
+        with pytest.raises(PermissionError):
+            get_ticket_resource("2")
+
+    def test_get_ticket_stats(self, client: Any) -> None:
+        from zammad_mcp_server.server import get_ticket_stats
+
+        with pytest.raises(PermissionError):
+            get_ticket_stats(group="Admin")
+
+        get_ticket_stats()
+        ticket_filter = client.get_ticket_stats.call_args.kwargs["ticket_filter"]
+        assert ticket_filter({"group": "Support"})
+        assert not ticket_filter({"group": "Admin"})
+
+    def test_group_tools_hide_forbidden_groups(self, client: Any) -> None:
+        from zammad_mcp_server.server import get_group, list_groups
+
+        result = list_groups()
+        assert [g["name"] for g in result["groups"]] == ["Support"]
+        assert result["count"] == 1
+
+        assert get_group(1)["name"] == "Support"
+        with pytest.raises(PermissionError):
+            get_group(2)
+
+
 class TestToolInfo:
     """Test suite for tool information."""
 

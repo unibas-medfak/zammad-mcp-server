@@ -142,6 +142,27 @@ def check_access(tool_name: str, required_permission: Permission) -> None:
         raise PermissionError(f"Access denied for tool: {tool_name}")
 
 
+def check_ticket_access(ticket_id: int) -> None:
+    """Ensure the ticket's group/organization is permitted by the policy.
+
+    Raises NotFoundError if the ticket doesn't exist and PermissionError if
+    it lies outside the allowed groups or organizations.
+    """
+    controller = get_access_controller()
+    if not controller.has_ticket_restrictions:
+        return
+
+    ticket = get_client().get_ticket(ticket_id)
+    if controller.filter_ticket(ticket.model_dump()) is None:
+        raise PermissionError("Access denied for this ticket")
+
+
+def check_group_access(group: str | None) -> None:
+    """Ensure a group name is permitted by the policy."""
+    if group is not None and not get_access_controller().is_group_allowed(group):
+        raise PermissionError(f"Access denied for group: {group}")
+
+
 # ==================== System Tools ====================
 
 @mcp.tool()
@@ -289,6 +310,7 @@ def create_ticket(
         The created ticket details.
     """
     check_access("create_ticket", Permission.WRITE)
+    check_group_access(group)
     client = get_client()
 
     from zammad_mcp_server.models import TicketCreateRequest, ArticleType
@@ -338,6 +360,11 @@ def update_ticket(
         The updated ticket details.
     """
     check_access("update_ticket", Permission.WRITE)
+    check_group_access(group)
+    try:
+        check_ticket_access(ticket_id)
+    except NotFoundError:
+        return {"error": f"Ticket {ticket_id} not found"}
     client = get_client()
 
     from zammad_mcp_server.models import TicketUpdateRequest, TicketState, TicketPriority
@@ -383,6 +410,7 @@ def delete_ticket(ticket_id: int) -> dict[str, Any]:
     client = get_client()
 
     try:
+        check_ticket_access(ticket_id)
         client.delete_ticket(ticket_id)
         return {"success": True, "message": f"Ticket {ticket_id} deleted"}
     except NotFoundError:
@@ -403,6 +431,7 @@ def get_ticket_articles(ticket_id: int) -> dict[str, Any]:
     client = get_client()
 
     try:
+        check_ticket_access(ticket_id)
         articles = client.get_ticket_articles(ticket_id)
         return {
             "ticket_id": ticket_id,
@@ -438,6 +467,10 @@ def create_article(
         The created article details.
     """
     check_access("create_article", Permission.WRITE)
+    try:
+        check_ticket_access(ticket_id)
+    except NotFoundError:
+        return {"error": f"Ticket {ticket_id} not found"}
     client = get_client()
 
     from zammad_mcp_server.models import ArticleCreateRequest, ArticleType
@@ -476,9 +509,19 @@ def get_ticket_stats(
         Ticket statistics including counts by state, group, and priority.
     """
     check_access("get_ticket_stats", Permission.READ_ONLY)
+    check_group_access(group)
     client = get_client()
+    controller = get_access_controller()
 
-    stats = client.get_ticket_stats(group=group, max_scan_pages=max_scan_pages)
+    ticket_filter = None
+    if controller.has_ticket_restrictions:
+        ticket_filter = lambda t: controller.filter_ticket(t) is not None  # noqa: E731
+
+    stats = client.get_ticket_stats(
+        group=group,
+        max_scan_pages=max_scan_pages,
+        ticket_filter=ticket_filter,
+    )
     return stats.model_dump()
 
 
@@ -860,9 +903,11 @@ def get_group(group_id: int) -> dict[str, Any]:
 
     try:
         group = client.get_group(group_id)
-        return group.model_dump()
     except NotFoundError:
         return {"error": f"Group {group_id} not found"}
+
+    check_group_access(group.name)
+    return group.model_dump()
 
 
 @mcp.tool()
@@ -875,7 +920,8 @@ def list_groups() -> dict[str, Any]:
     check_access("list_groups", Permission.READ_ONLY)
     client = get_client()
 
-    groups = client.list_groups()
+    controller = get_access_controller()
+    groups = [g for g in client.list_groups() if controller.is_group_allowed(g.name)]
     return {
         "groups": [g.model_dump() for g in groups],
         "count": len(groups),
@@ -916,6 +962,8 @@ def get_ticket_resource(ticket_id: str) -> str:
 
     try:
         ticket = client.get_ticket(int(ticket_id), include_articles=True)
+        if get_access_controller().filter_ticket(ticket.model_dump()) is None:
+            raise PermissionError("Access denied for this ticket")
 
         lines = [
             f"# Ticket #{ticket.number or ticket.id}: {ticket.title}",

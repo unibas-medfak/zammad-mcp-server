@@ -272,7 +272,8 @@ MCP_ALLOWED_CATEGORIES=tickets,groups,system
 # Deny specific dangerous tools
 MCP_DENIED_TOOLS=delete_ticket,delete_user,delete_organization
 
-# Restrict to specific groups
+# Restrict to specific groups: tickets, articles, stats and groups outside
+# these are hidden, and cannot be created, updated or deleted
 MCP_ALLOWED_GROUPS=Support,Sales
 
 # Entries kept in the in-memory access log (default 1000, 0 disables it)

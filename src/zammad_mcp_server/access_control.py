@@ -185,6 +185,20 @@ class AccessController:
         # Fall back to default
         return self.policy.default_permission
 
+    @property
+    def has_ticket_restrictions(self) -> bool:
+        """Whether the policy limits tickets by group or organization."""
+        return (
+            self.policy.allowed_groups is not None
+            or self.policy.allowed_organizations is not None
+        )
+
+    def is_group_allowed(self, group: str | None) -> bool:
+        """Check whether a group name is permitted by the policy."""
+        if self.policy.allowed_groups is None:
+            return True
+        return group in self.policy.allowed_groups
+
     def filter_ticket(self, ticket: dict[str, Any]) -> dict[str, Any] | None:
         """Filter ticket data based on policy restrictions."""
         # Check group restrictions
@@ -192,7 +206,7 @@ class AccessController:
             group = ticket.get("group", "")
             if isinstance(group, dict):
                 group = group.get("name", "")
-            if group not in self.policy.allowed_groups:
+            if not self.is_group_allowed(group):
                 return None
 
         # Check organization restrictions

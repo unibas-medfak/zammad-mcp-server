@@ -170,6 +170,24 @@ class TestZammadClientRequests:
         result = client.delete_ticket(1)
         assert result is True
 
+    def test_get_ticket_stats_with_filter(self, respx_mock: respx.MockRouter) -> None:
+        """Tickets rejected by ticket_filter are excluded from all counts."""
+        respx_mock.get("http://test-zammad.local/api/v1/tickets/search").mock(
+            return_value=Response(200, json=[
+                {"id": 1, "group": "Support", "state": "open", "priority": "2 normal"},
+                {"id": 2, "group": "Admin", "state": "closed", "priority": "3 high"},
+            ])
+        )
+
+        client = ZammadClient()
+        stats = client.get_ticket_stats(ticket_filter=lambda t: t["group"] == "Support")
+
+        assert stats.total == 1
+        assert stats.open == 1
+        assert stats.closed == 0
+        assert stats.by_group == {"Support": 1}
+        assert stats.by_priority == {"2 normal": 1}
+
     def test_get_ticket_articles(self, zammad_api_mock: Any) -> None:
         """Test getting ticket articles."""
         client = ZammadClient()

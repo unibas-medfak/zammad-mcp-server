@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -349,8 +350,12 @@ class ZammadClient:
         self,
         group: str | None = None,
         max_scan_pages: int = 10,
+        ticket_filter: Callable[[dict[str, Any]], bool] | None = None,
     ) -> TicketStats:
-        """Get ticket statistics with pagination support."""
+        """Get ticket statistics with pagination support.
+
+        Tickets for which ``ticket_filter`` returns False are left out of all counts.
+        """
         import time
 
         start_time = time.time()
@@ -383,6 +388,9 @@ class ZammadClient:
                 break
 
             for ticket_data in tickets_data:
+                if ticket_filter is not None and not ticket_filter(ticket_data):
+                    continue
+
                 total += 1
 
                 # Count by state
