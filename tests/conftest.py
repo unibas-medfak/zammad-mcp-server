@@ -292,6 +292,15 @@ def zammad_api_mock(respx_mock: respx.MockRouter) -> respx.MockRouter:
         })
     )
 
+    # Shared drafts, likewise registered before the /tickets/ prefix routes
+    respx_mock.get(url__regex=rf"{base_url}/tickets/\d+/shared_draft$").mock(
+        return_value=Response(200, json={"shared_draft_id": None, "assets": None})
+    )
+
+    respx_mock.put(url__regex=rf"{base_url}/tickets/\d+/shared_draft$").mock(
+        return_value=Response(200, json={"shared_draft_id": 7, "assets": {}})
+    )
+
     respx_mock.get(url__startswith=f"{base_url}/tickets/").mock(
         return_value=Response(200, json=create_ticket_data(expand=True))
     )

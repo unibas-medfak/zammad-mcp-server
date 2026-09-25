@@ -18,6 +18,7 @@ from zammad_mcp_server.models import (
     Organization,
     OrganizationCreateRequest,
     SearchResult,
+    SharedDraftRequest,
     Ticket,
     TicketCreateRequest,
     TicketStats,
@@ -345,6 +346,37 @@ class ZammadClient:
 
         result = self._request("POST", "/ticket_articles", json=data)
         return Article.model_validate(result)
+
+    def get_shared_draft_id(self, ticket_id: int) -> int | None:
+        """Get the ID of a ticket's shared draft, or None if it has none."""
+        result = self._request("GET", f"/tickets/{ticket_id}/shared_draft")
+        return result.get("shared_draft_id") if isinstance(result, dict) else None
+
+    def set_shared_draft(self, request: SharedDraftRequest) -> int:
+        """Create or replace a ticket's shared draft and return its ID.
+
+        A ticket has at most one shared draft, so this overwrites any existing one.
+        """
+        new_article: dict[str, Any] = {
+            "body": request.body,
+            "type": request.type.value,
+            "internal": request.internal,
+            "content_type": "text/html",
+        }
+
+        if request.subject:
+            new_article["subject"] = request.subject
+        if request.to:
+            new_article["to"] = request.to
+        if request.cc:
+            new_article["cc"] = request.cc
+
+        result = self._request(
+            "PUT",
+            f"/tickets/{request.ticket_id}/shared_draft",
+            json={"new_article": new_article},
+        )
+        return result["shared_draft_id"]  # type: ignore
 
     def get_ticket_stats(
         self,

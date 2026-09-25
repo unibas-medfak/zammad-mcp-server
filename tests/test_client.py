@@ -19,6 +19,7 @@ from zammad_mcp_server.models import (
     UserCreateRequest,
     OrganizationCreateRequest,
     ArticleCreateRequest,
+    SharedDraftRequest,
 )
 
 
@@ -207,6 +208,39 @@ class TestZammadClientRequests:
         article = client.create_article(request)
         assert article.id is not None
         assert article.body == "New article content"
+
+    def test_get_shared_draft_id_none(self, zammad_api_mock: Any) -> None:
+        """Test that a ticket without a shared draft yields None."""
+        client = ZammadClient()
+        assert client.get_shared_draft_id(1) is None
+
+    def test_set_shared_draft(self, zammad_api_mock: Any) -> None:
+        """Test that a shared draft is stored as the ticket's new article."""
+        import json
+
+        client = ZammadClient()
+        request = SharedDraftRequest(
+            ticket_id=1,
+            body="<p>Hello</p>",
+            subject="Re: Help",
+            to="customer@example.com",
+        )
+
+        assert client.set_shared_draft(request) == 7
+
+        sent = zammad_api_mock.calls.last.request
+        assert sent.method == "PUT"
+        assert sent.url.path == "/api/v1/tickets/1/shared_draft"
+        assert json.loads(sent.content) == {
+            "new_article": {
+                "body": "<p>Hello</p>",
+                "type": "email",
+                "internal": False,
+                "content_type": "text/html",
+                "subject": "Re: Help",
+                "to": "customer@example.com",
+            }
+        }
 
     def test_get_user(self, zammad_api_mock: Any) -> None:
         """Test getting a user."""

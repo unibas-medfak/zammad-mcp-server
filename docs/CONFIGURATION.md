@@ -58,7 +58,7 @@ Keeping them in `MCP_DENIED_TOOLS` does no harm, and it keeps them blocked if th
 
 | Category | Tools |
 | --- | --- |
-| `tickets` | `get_ticket`, `search_tickets`, `create_ticket`, `update_ticket`, `delete_ticket`, `get_ticket_articles`, `create_article`, `get_ticket_stats` |
+| `tickets` | `get_ticket`, `search_tickets`, `create_ticket`, `update_ticket`, `delete_ticket`, `get_ticket_articles`, `create_article`, `set_ticket_draft`, `get_ticket_stats` |
 | `users` | `get_user`, `search_users`, `create_user`, `update_user`, `delete_user`, `get_current_user` |
 | `organizations` | `get_organization`, `search_organizations`, `create_organization`, `update_organization`, `delete_organization` |
 | `groups` | `get_group`, `list_groups`, `create_group` |
@@ -87,6 +87,18 @@ MCP_ALLOWED_CATEGORIES=all
 MCP_DENIED_TOOLS=delete_ticket,delete_user,delete_organization
 MCP_ALLOWED_GROUPS=Support
 ```
+
+**Reply drafting assistant** (proposes replies as shared drafts; a human agent reviews and sends
+them, and the assistant can't send anything itself):
+
+```env
+MCP_ALLOWED_CATEGORIES=tickets,admin,system
+MCP_DENIED_TOOLS=create_ticket,update_ticket,delete_ticket,create_article
+```
+
+`set_ticket_draft` saves the draft through Zammad's shared drafts, which must be enabled on the
+ticket's group (Admin → Groups → Shared Drafts, on by default). A ticket holds one shared draft,
+so the tool refuses to replace an existing one unless called with `overwrite`.
 
 **Full write automation** (use only with human review; deletes remain unavailable):
 

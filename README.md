@@ -223,6 +223,7 @@ The server provides 30+ MCP tools for Zammad, organized into categories. Full re
 - `delete_ticket` - Delete tickets (admin)
 - `get_ticket_articles` - Get all messages
 - `create_article` - Add responses/notes
+- `set_ticket_draft` - Propose a reply as a shared draft for an agent to review and send
 - `get_ticket_stats` - Analytics and metrics
 - `get_ticket_states` - List available states
 - `get_priorities` - List priority levels

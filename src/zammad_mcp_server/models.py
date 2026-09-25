@@ -333,6 +333,20 @@ class ArticleCreateRequest(BaseModel):
     cc: str | None = None
 
 
+class SharedDraftRequest(BaseModel):
+    """Request model for a ticket's shared draft reply."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    ticket_id: int = Field(..., gt=0)
+    subject: str | None = Field(None, max_length=500)
+    body: str = Field(..., min_length=1)
+    type: ArticleType = ArticleType.EMAIL
+    internal: bool = False
+    to: str | None = None
+    cc: str | None = None
+
+
 class UserCreateRequest(BaseModel):
     """Request model for creating a user."""
 

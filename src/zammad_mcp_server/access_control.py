@@ -52,6 +52,7 @@ TOOL_CATEGORIES: dict[str, ToolCategory] = {
     "delete_ticket": ToolCategory.TICKETS,
     "get_ticket_articles": ToolCategory.TICKETS,
     "create_article": ToolCategory.TICKETS,
+    "set_ticket_draft": ToolCategory.TICKETS,
     "get_ticket_stats": ToolCategory.TICKETS,
     # User tools
     "get_user": ToolCategory.USERS,
@@ -84,6 +85,7 @@ TOOL_REQUIRED_PERMISSIONS: dict[str, Permission] = {
     "update_ticket": Permission.WRITE,
     "delete_ticket": Permission.ADMIN,
     "create_article": Permission.WRITE,
+    "set_ticket_draft": Permission.WRITE,
     "create_user": Permission.WRITE,
     "update_user": Permission.WRITE,
     "delete_user": Permission.ADMIN,

@@ -210,6 +210,46 @@ class TestTicketTools:
 
             assert result["body"] == "New content"
 
+    def test_set_ticket_draft(self, unrestricted_controller: Any) -> None:
+        """Test proposing a reply as the ticket's shared draft."""
+        with patch("zammad_mcp_server.server.get_client") as mock_get_client, \
+             patch("zammad_mcp_server.server.get_access_controller") as mock_get_controller:
+
+            mock_client = MagicMock()
+            mock_client.get_shared_draft_id.return_value = None
+            mock_client.set_shared_draft.return_value = 7
+            mock_get_client.return_value = mock_client
+            mock_get_controller.return_value = unrestricted_controller
+
+            from zammad_mcp_server.server import set_ticket_draft
+            result = set_ticket_draft(ticket_id=1, body="<p>Hello</p>", to="customer@example.com")
+
+            assert result == {"ticket_id": 1, "shared_draft_id": 7}
+            request = mock_client.set_shared_draft.call_args.args[0]
+            assert request.type.value == "email"
+            assert request.to == "customer@example.com"
+
+    def test_set_ticket_draft_keeps_existing_draft(self, unrestricted_controller: Any) -> None:
+        """Test that an existing shared draft is only replaced with overwrite."""
+        with patch("zammad_mcp_server.server.get_client") as mock_get_client, \
+             patch("zammad_mcp_server.server.get_access_controller") as mock_get_controller:
+
+            mock_client = MagicMock()
+            mock_client.get_shared_draft_id.return_value = 3
+            mock_client.set_shared_draft.return_value = 3
+            mock_get_client.return_value = mock_client
+            mock_get_controller.return_value = unrestricted_controller
+
+            from zammad_mcp_server.server import set_ticket_draft
+            result = set_ticket_draft(ticket_id=1, body="<p>Hello</p>")
+
+            assert "already has a shared draft" in result["error"]
+            mock_client.set_shared_draft.assert_not_called()
+
+            result = set_ticket_draft(ticket_id=1, body="<p>Hello</p>", overwrite=True)
+
+            assert result == {"ticket_id": 1, "shared_draft_id": 3}
+
     def test_get_ticket_stats(self, unrestricted_controller: Any) -> None:
         """Test getting ticket statistics."""
         with patch("zammad_mcp_server.server.get_client") as mock_get_client, \
@@ -491,6 +531,7 @@ class TestGroupRestrictions:
         [
             ("get_ticket_articles", {}, "get_ticket_articles"),
             ("create_article", {"body": "hi"}, "create_article"),
+            ("set_ticket_draft", {"body": "hi"}, "set_shared_draft"),
             ("update_ticket", {"title": "x"}, "update_ticket"),
             ("delete_ticket", {}, "delete_ticket"),
         ],
@@ -581,7 +622,8 @@ class TestPolicyVisibility:
 
         assert tools == {
             "get_ticket", "search_tickets", "update_ticket", "get_ticket_articles",
-            "create_article", "get_ticket_stats", "get_server_info", "get_allowed_tools",
+            "create_article", "set_ticket_draft", "get_ticket_stats", "get_server_info",
+            "get_allowed_tools",
         }
         assert templates == {"zammad://ticket/{ticket_id}"}
         assert resources == set()

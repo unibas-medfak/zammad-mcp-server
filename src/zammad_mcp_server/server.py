@@ -552,6 +552,73 @@ def create_article(
 
 
 @mcp.tool()
+def set_ticket_draft(
+    ticket_id: int,
+    body: str,
+    subject: str | None = None,
+    type: str = "email",
+    internal: bool = False,
+    to: str | None = None,
+    cc: str | None = None,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    """Propose a reply as the ticket's shared draft, for a human agent to review and send.
+
+    Nothing is sent. Agents see the draft on the ticket and can load it into the
+    reply editor, edit it and send it themselves. A ticket holds one shared draft;
+    an existing one is kept unless overwrite is set.
+
+    Args:
+        ticket_id: The ID of the ticket to draft a reply for
+        body: The reply text as HTML (e.g. "<p>Hello</p><p>Thanks for ...</p>")
+        subject: Subject line for the reply
+        type: Type of the reply (email, note, phone, web)
+        internal: Whether the reply should be internal only
+        to: Recipient email (for email type)
+        cc: CC recipients (for email type)
+        overwrite: Replace the ticket's existing shared draft, if it has one
+
+    Returns:
+        The ticket ID and the shared draft ID.
+    """
+    check_access("set_ticket_draft")
+    try:
+        check_ticket_access(ticket_id)
+    except NotFoundError:
+        return {"error": f"Ticket {ticket_id} not found"}
+    client = get_client()
+
+    from zammad_mcp_server.models import ArticleType, SharedDraftRequest
+
+    try:
+        article_type_enum = ArticleType(type)
+    except ValueError:
+        article_type_enum = ArticleType.EMAIL
+
+    request = SharedDraftRequest(
+        ticket_id=ticket_id,
+        body=body,
+        subject=subject,
+        type=article_type_enum,
+        internal=internal,
+        to=to,
+        cc=cc,
+    )
+
+    try:
+        if not overwrite and client.get_shared_draft_id(ticket_id) is not None:
+            return {
+                "error": f"Ticket {ticket_id} already has a shared draft; "
+                "set overwrite to replace it"
+            }
+        draft_id = client.set_shared_draft(request)
+    except NotFoundError:
+        return {"error": f"Ticket {ticket_id} not found"}
+
+    return {"ticket_id": ticket_id, "shared_draft_id": draft_id}
+
+
+@mcp.tool()
 def get_ticket_stats(
     group: str | None = None,
     max_scan_pages: int = 10,
