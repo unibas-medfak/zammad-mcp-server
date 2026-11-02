@@ -1,7 +1,7 @@
 # Zammad MCP Server Dockerfile
 
 # ---- Build stage: resolve nothing, install exactly what uv.lock pins ----
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -22,7 +22,7 @@ RUN uv sync --locked --no-dev --no-editable
 
 
 # ---- Runtime stage: just the virtualenv, no build tooling ----
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 LABEL maintainer="Open Ticket AI <tobias.bueck@openticketai.com>"
 LABEL description="MCP Server for Zammad Helpdesk System"
